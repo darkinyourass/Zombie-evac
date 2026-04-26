@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76a19b13f68c89648a0a4c1fba3f8a6f, type: 3}
+  m_Name: Level_1_Data
+  m_EditorClassIdentifier: 
+  levelPrefab: {fileID: 4058927015439930953, guid: 58473225ce1d7374fabd42bd17206676, type: 3}
+  humanCount: 20
+  levelTimer: 30
+  initialZombies: 30
+  initialSpawnDelay: 0.5
+  suddenDeathSpawnRate: 0.2
+  cameraPosition: {x: -6.6, y: 32, z: -8}
+  cameraRotation: {x: 75, y: 0, z: 0}
+  cameraFieldOfView: 45
+  orthographicSize: 10
+  currencyReward: 50
+  hasCardReward: 1
+  cardReward: 4
