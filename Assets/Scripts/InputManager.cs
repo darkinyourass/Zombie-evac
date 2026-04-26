@@ -11,6 +11,7 @@ public class InputManager : MonoBehaviour
 	public GameObject bombPrefab;
 	public GameObject carPrefab;
 	public GameObject sniperPrefab;
+	public GameObject combatHelicopterPrefab;
 
 	private Camera mainCam;
 	private CardManager.CardType draggingCard = CardManager.CardType.None; // Ïî óìîë÷àíèş ïóñòî
@@ -123,11 +124,18 @@ public class InputManager : MonoBehaviour
 	{
 		switch (type)
 		{
-			case CardManager.CardType.Helicopter: return helicopterPrefab ? helicopterPrefab.GetComponent<HelicopterController>().attractRadius : 12f;
-			case CardManager.CardType.Soldier: return soldierPrefab ? soldierPrefab.GetComponent<Soldier>().attackRange : 12f;
-			case CardManager.CardType.Bomb: return bombPrefab ? bombPrefab.GetComponent<Bomb>().damageRadius : 6f;
-			case CardManager.CardType.Car: return carPrefab ? carPrefab.GetComponent<CarController>().attractRadius : 12f;
-			case CardManager.CardType.Sniper: return sniperPrefab ? sniperPrefab.GetComponent<Sniper>().attackRange : 25f;
+			case CardManager.CardType.Helicopter:
+				return helicopterPrefab ? helicopterPrefab.GetComponent<HelicopterController>().attractRadius : 12f;
+			case CardManager.CardType.Soldier:
+				return soldierPrefab ? soldierPrefab.GetComponent<Soldier>().attackRange : 12f;
+			case CardManager.CardType.Bomb:
+				return bombPrefab ? bombPrefab.GetComponent<Bomb>().damageRadius : 6f;
+			case CardManager.CardType.Car:
+				return 4f;
+			case CardManager.CardType.Sniper:
+				return sniperPrefab ? sniperPrefab.GetComponent<Sniper>().attackRange : 25f;
+			case CardManager.CardType.CombatHelicopter:
+				return 6f; // Ğàäèóñ ïîñàäêè òÿæåëîãî âåğòîëåòà
 			default: return 5f;
 		}
 	}
@@ -157,6 +165,11 @@ public class InputManager : MonoBehaviour
 				break;
 			case CardManager.CardType.Sniper:
 				Instantiate(sniperPrefab, pos, Quaternion.identity);
+				break;
+			// --- ÍÎÂÛÉ ÁËÎÊ ÄËß ÁÎÅÂÎÃÎ ÂÅĞÒÎËÅÒÀ ---
+			case CardManager.CardType.CombatHelicopter:
+				spawnedObject = Instantiate(combatHelicopterPrefab);
+				spawnedObject.GetComponent<CombatHelicopter>().Launch(pos);
 				break;
 		}
 	}

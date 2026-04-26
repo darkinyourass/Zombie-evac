@@ -12,10 +12,9 @@ public class Zombie : MonoBehaviour
 	public int hp = 30;
 	public float moveSpeed = 2.0f;
 	public int attackDamage = 1;
-	public float attackRadius = 2.0f;  // НОВЫЙ ПАРАМЕТР: Как близко нужно подойти для укуса
+	public float attackRadius = 1.2f;
 
 	[Header("Ссылки")]
-	[Tooltip("Положи сюда префаб Зомби, чтобы заражать людей!")]
 	public GameObject zombiePrefab;
 
 	private NavMeshAgent agent;
@@ -44,7 +43,6 @@ public class Zombie : MonoBehaviour
 				{
 					agent.SetDestination(target.position);
 
-					// ИСПРАВЛЕНИЕ: Теперь используем твой параметр attackRadius вместо жестких 2 метров
 					if (Vector3.Distance(transform.position, target.position) <= attackRadius)
 					{
 						if (target.CompareTag("Human"))
@@ -56,10 +54,8 @@ public class Zombie : MonoBehaviour
 
 							Destroy(target.gameObject);
 						}
-						else if (target.CompareTag("Car"))
-						{
-							target.GetComponent<CarController>()?.TakeDamage(attackDamage);
-						}
+
+						// ЛОГИКА АТАКИ НА МАШИНУ УДАЛЕНА - МАШИНУ БОЛЬШЕ НЕЛЬЗЯ КУСАТЬ
 
 						yield return new WaitForSeconds(1f);
 					}
@@ -71,6 +67,7 @@ public class Zombie : MonoBehaviour
 
 	private Transform FindTarget()
 	{
+		// 1. Приманка
 		var baits = FindObjectsOfType<Bait>();
 		foreach (var bait in baits)
 		{
@@ -78,14 +75,13 @@ public class Zombie : MonoBehaviour
 				return bait.transform;
 		}
 
-		foreach (var c in CarController.AllCars)
-		{
-			if (c.currentState == CarController.CarState.Loading) return c.transform;
-		}
+		// ЛОГИКА ПОИСКА МАШИНЫ УДАЛЕНА - ЗОМБИ ЗА НЕЙ НЕ БЕГАЮТ
 
+		// 2. Люди
 		Transform best = null; float minD = 100f;
 		foreach (var h in Human.AllHumans)
 		{
+			if (h == null) continue;
 			float d = Vector3.Distance(transform.position, h.transform.position);
 			if (d < minD) { minD = d; best = h.transform; }
 		}

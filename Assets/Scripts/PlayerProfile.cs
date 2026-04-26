@@ -39,7 +39,7 @@ public class PlayerProfile : MonoBehaviour
 			.ToList();
 
 		// Загружаем колоду (по умолчанию 2 карты и 3 пустых слота)
-		string deckStr = PlayerPrefs.GetString("CurrentDeck", "Car,Soldier,None,None,None");
+		string deckStr = PlayerPrefs.GetString("CurrentDeck", "Car,Soldier,CombatHelicopter,Bait,Sniper");
 		var deckList = deckStr.Split(',')
 			.Select(s => (CardManager.CardType)System.Enum.Parse(typeof(CardManager.CardType), s))
 			.ToArray();

@@ -1,176 +1,156 @@
 using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
-using System.Collections.Generic;
 using TMPro;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class CarController : MonoBehaviour
 {
-	public static List<CarController> AllCars = new List<CarController>();
-	public enum CarState { DrivingToPoint, Loading, Escaping }
+	public enum CarState { DrivingToTarget, Loading, Leaving }
 	public CarState currentState;
 
-	[Header("Настройки")]
-	public int hp = 3;
-	public int maxCapacity = 8;
-	public float attractRadius = 12f;
-	public float fireRange = 8f;
-	public float fireRate = 0.5f;
+	[Header("Настройки Времени")]
+	public float loadTime = 15f;          // Тот самый таймер, который ты просил вернуть
 
-	[Header("Ссылки")]
-	public GameObject zombiePrefab;
-	public TextMeshProUGUI loadText;
-	public ParticleSystem exhaustFire;
-	public LineRenderer pathLine;
+	[Header("Настройки Эвакуации")]
+	public int maxCapacity = 5;
+	public float sirenRadius = 20f;
+	public float crushRadius = 2.5f;
+
+	[Header("Посадка и Опасность")]
+	public float boardingRadius = 1.8f;
+	public float boardingCooldown = 0.5f;
+	public int boardPerTick = 1;
+	public float dangerRadius = 2.0f;
+
+	[Header("UI и Визуал")]
+	public TMP_Text statusText;
+	public GameObject sirenRingPrefab;
 
 	private NavMeshAgent agent;
 	private int currentLoad = 0;
-	private bool isDestroyed = false;
-	private Vector3 escapeDir;
-	private float nextFire;
-
-	// Пулемет
-	private LineRenderer tracerLine;
+	private Transform exitWaypoint;
+	private bool isTooHot = false;
+	private bool sirenFired = false; // Предохранитель для сирены
 
 	private void Awake() => agent = GetComponent<NavMeshAgent>();
-	private void OnEnable() => AllCars.Add(this);
-	private void OnDisable() => AllCars.Remove(this);
 
-	public void Launch(Vector3 target)
+	public void Launch(Vector3 targetPos)
 	{
-		agent.enabled = false;
-		Vector3 spawnDir = Vector3.back;
-		if (Zombie.AllZombies.Count > 0)
+		GameObject[] waypoints = GameObject.FindGameObjectsWithTag("CarWaypoint");
+		if (waypoints.Length < 2) { Destroy(gameObject); return; }
+
+		Transform entryWaypoint = waypoints[0].transform;
+		exitWaypoint = waypoints[1].transform;
+		float minDist = float.MaxValue; float maxDist = float.MinValue;
+
+		foreach (var wp in waypoints)
 		{
-			Vector3 avgZ = Vector3.zero;
-			foreach (var z in Zombie.AllZombies) if (z != null) avgZ += z.transform.position;
-			spawnDir = (avgZ / Zombie.AllZombies.Count - target).normalized;
+			float d = Vector3.Distance(targetPos, wp.transform.position);
+			if (d < minDist) { minDist = d; entryWaypoint = wp.transform; }
+			if (d > maxDist) { maxDist = d; exitWaypoint = wp.transform; }
 		}
 
-		Vector3 spawnPos = target + spawnDir * 25f;
-		if (NavMesh.SamplePosition(spawnPos, out NavMeshHit hit, 15f, NavMesh.AllAreas)) transform.position = hit.position;
-		else transform.position = target;
+		agent.Warp(entryWaypoint.position);
+		currentState = CarState.DrivingToTarget;
+		agent.SetDestination(targetPos);
 
-		escapeDir = -spawnDir;
-		agent.enabled = true;
-		agent.SetDestination(target);
-		currentState = CarState.DrivingToPoint;
-		if (exhaustFire != null) exhaustFire.Play();
 		UpdateUI();
-
-		// ИСПРАВЛЕНИЕ: Создаем пулемет на отдельном дочернем объекте, чтобы не конфликтовать с линией пути!
-		GameObject tracerObj = new GameObject("MachineGunTracer");
-		tracerObj.transform.SetParent(transform); // Делаем его частью машины
-		tracerObj.transform.localPosition = Vector3.zero;
-
-		tracerLine = tracerObj.AddComponent<LineRenderer>();
-		tracerLine.startWidth = 0.1f;
-		tracerLine.endWidth = 0.02f;
-		tracerLine.material = new Material(Shader.Find("Sprites/Default"));
-		tracerLine.startColor = Color.yellow;
-		tracerLine.endColor = Color.yellow;
-		tracerLine.enabled = false;
+		StartCoroutine(CarRoutine());
 	}
 
 	private void Update()
 	{
-		if (isDestroyed || agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh) return;
+		if (statusText != null)
+			statusText.transform.rotation = Quaternion.LookRotation(statusText.transform.position - Camera.main.transform.position);
 
-		// Стрельба пулемета
-		if (Time.time > nextFire) { Shoot(); nextFire = Time.time + fireRate; }
-
-		if (currentState == CarState.DrivingToPoint && !agent.pathPending && agent.remainingDistance < 1f) StartLoading();
-
-		if (currentState == CarState.Escaping)
+		if (agent.velocity.magnitude > 1f)
 		{
-			if (pathLine != null) DrawPath();
-			if (!agent.pathPending && agent.remainingDistance < 1f)
+			Collider[] hits = Physics.OverlapSphere(transform.position, crushRadius);
+			foreach (var h in hits)
 			{
-				GameManager.Instance.AddRescuedHumans(currentLoad);
-				Destroy(gameObject);
+				if (h.CompareTag("Zombie")) h.GetComponent<Zombie>()?.TakeDamage(1000);
 			}
 		}
 	}
 
-	private void Shoot()
+	private void UpdateUI()
 	{
-		Zombie best = null; float minD = fireRange;
-		foreach (var z in Zombie.AllZombies)
-		{
-			if (z == null) continue;
-			float d = Vector3.Distance(transform.position, z.transform.position);
-			if (d < minD) { minD = d; best = z; }
-		}
-		if (best != null && tracerLine != null)
-		{
-			best.TakeDamage(10);
-
-			// Визуальный выстрел из машины
-			tracerLine.SetPosition(0, transform.position + Vector3.up);
-			tracerLine.SetPosition(1, best.transform.position + Vector3.up);
-			tracerLine.enabled = true;
-			StartCoroutine(HideTracer());
-		}
+		if (statusText == null) return;
+		if (isTooHot) { statusText.text = "TOO HOT!"; statusText.color = Color.red; }
+		else if (currentLoad >= maxCapacity) { statusText.text = "FULL!"; statusText.color = Color.green; }
+		else { statusText.text = $"{currentLoad} / {maxCapacity}"; statusText.color = Color.white; }
 	}
 
-	private IEnumerator HideTracer()
+	private IEnumerator CarRoutine()
 	{
-		yield return new WaitForSeconds(0.1f);
-		if (tracerLine != null) tracerLine.enabled = false;
-	}
+		// 1. Доезжаем
+		while (agent.pathPending || agent.remainingDistance > 1.5f) yield return null;
 
-	private void StartLoading()
-	{
+		// 2. ФАЗА ЗАГРУЗКИ
 		currentState = CarState.Loading;
 		agent.isStopped = true;
-		foreach (var h in Human.AllHumans) if (Vector3.Distance(transform.position, h.transform.position) < attractRadius) h.SetRescueTarget(transform);
-		StartCoroutine(LoadRoutine());
-	}
+		agent.velocity = Vector3.zero; // Сразу гасим инерцию
 
-	private IEnumerator LoadRoutine()
-	{
-		while (currentLoad < maxCapacity)
+		// --- СИРЕНА (ОДИН РАЗ!) ---
+		if (!sirenFired && sirenRingPrefab != null)
 		{
-			Human h = null;
-			foreach (var hum in Human.AllHumans) if (Vector3.Distance(transform.position, hum.transform.position) < 2.5f) { h = hum; break; }
-			if (h != null) { Destroy(h.gameObject); currentLoad++; UpdateUI(); yield return new WaitForSeconds(0.3f); }
-			else { bool anyone = false; foreach (var hum in Human.AllHumans) if (hum.rescueTarget == transform) anyone = true; if (!anyone) break; yield return null; }
-		}
-		Exit();
-	}
+			GameObject ring = Instantiate(sirenRingPrefab, transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0));
+			// Передаем радиус из настроек машины в эффект!
+			ring.GetComponent<SirenEffect>()?.Setup(sirenRadius, 1.2f);
 
-	private void Exit()
-	{
-		currentState = CarState.Escaping;
+			Collider[] humansInRange = Physics.OverlapSphere(transform.position, sirenRadius);
+			foreach (var h in humansInRange)
+			{
+				if (h.CompareTag("Human")) h.GetComponent<NavMeshAgent>()?.SetDestination(transform.position);
+			}
+			sirenFired = true;
+		}
+
+		float nextBoardTime = 0;
+		float waitTimer = 0; // Таймер нахождения на точке
+
+		while (currentLoad < maxCapacity && !isTooHot && waitTimer < loadTime)
+		{
+			agent.velocity = Vector3.zero; // Не даем людям её толкать
+			waitTimer += Time.deltaTime;
+
+			// Проверка на зомби
+			Collider[] dangerZone = Physics.OverlapSphere(transform.position, dangerRadius);
+			foreach (var d in dangerZone) if (d.CompareTag("Zombie")) { isTooHot = true; break; }
+
+			if (isTooHot) break;
+
+			// Посадка
+			if (Time.time >= nextBoardTime)
+			{
+				Collider[] humansAtDoors = Physics.OverlapSphere(transform.position, boardingRadius);
+				int boarded = 0;
+				foreach (var h in humansAtDoors)
+				{
+					if (h.CompareTag("Human"))
+					{
+						Destroy(h.gameObject);
+						currentLoad++; boarded++;
+						if (boarded >= boardPerTick || currentLoad >= maxCapacity) break;
+					}
+				}
+				if (boarded > 0) { UpdateUI(); nextBoardTime = Time.time + boardingCooldown; }
+			}
+			yield return null;
+		}
+
+		// 3. УЕЗЖАЕМ
+		UpdateUI();
+		if (isTooHot) yield return new WaitForSeconds(0.8f);
+
+		currentState = CarState.Leaving;
 		agent.isStopped = false;
-		Vector3 ex = transform.position + escapeDir * 40f;
-		if (NavMesh.SamplePosition(ex, out NavMeshHit hit, 20f, NavMesh.AllAreas)) agent.SetDestination(hit.position);
-		else { GameManager.Instance.AddRescuedHumans(currentLoad); Destroy(gameObject); }
+		agent.SetDestination(exitWaypoint.position);
+
+		while (agent.pathPending || agent.remainingDistance > 2f) yield return null;
+
+		GameManager.Instance.AddRescuedHumans(currentLoad);
+		Destroy(gameObject);
 	}
-
-	public void TakeDamage(int dmg) { hp -= dmg; if (hp <= 0) Die(); }
-
-	private void Die()
-	{
-		if (isDestroyed) return;
-		isDestroyed = true;
-
-		if (agent.isOnNavMesh) agent.isStopped = true;
-		if (exhaustFire != null) exhaustFire.Stop();
-		if (tracerLine != null) tracerLine.enabled = false;
-
-		int totalZombiesToSpawn = 3 + currentLoad;
-		for (int i = 0; i < totalZombiesToSpawn; i++)
-		{
-			Instantiate(zombiePrefab, transform.position + Random.insideUnitSphere * 2f, Quaternion.identity);
-		}
-
-		GetComponent<Renderer>().material.color = Color.black;
-		Destroy(gameObject, 3f);
-	}
-
-	private void UpdateUI() { if (loadText != null) loadText.text = $"{currentLoad}/{maxCapacity}"; }
-	private void DrawPath() { if (agent.path.corners.Length > 0 && pathLine != null) { pathLine.positionCount = agent.path.corners.Length; pathLine.SetPositions(agent.path.corners); } }
-	private void OnTriggerEnter(Collider other) { if (other.CompareTag("Zombie") && currentState != CarState.Loading) Destroy(other.gameObject); }
 }

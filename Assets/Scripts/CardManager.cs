@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 public class CardManager : MonoBehaviour
 {
-	public enum CardType { None, Helicopter, Soldier, Bait, Bomb, Car, Sniper }
+	public enum CardType { None, Helicopter, Soldier, Bait, Bomb, Car, Sniper, CombatHelicopter };
 	public static CardManager Instance;
 
 	[Header("Куда спавнить карты?")]

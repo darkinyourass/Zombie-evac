@@ -14,6 +14,7 @@ TagManager:
   - Soldier
   - Building
   - Sniper
+  - CarWaypoint
   layers:
   - Default
   - TransparentFX
