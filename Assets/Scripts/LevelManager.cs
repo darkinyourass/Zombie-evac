@@ -107,11 +107,18 @@ public class LevelManager : MonoBehaviour
 		float transitionTime = 2f;
 		float t = 0;
 
+		// «апоминаем, насколько сильно светило небо днем
+		float startAmbient = RenderSettings.ambientIntensity;
+
 		while (t < 1)
 		{
 			t += Time.deltaTime / transitionTime;
 			sunLight.color = Color.Lerp(dayColor, nightColor, t);
 			sunLight.intensity = Mathf.Lerp(dayIntensity, nightIntensity, t);
+
+			// ѕлавно гасим свечение самого неба (от дневного до 0.1)
+			RenderSettings.ambientIntensity = Mathf.Lerp(startAmbient, 0.1f, t);
+
 			yield return null;
 		}
 	}
