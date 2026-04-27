@@ -504,7 +504,7 @@ Light:
   serializedVersion: 11
   m_Type: 1
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 0.5
+  m_Intensity: 1
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -513,9 +513,9 @@ Light:
     m_Type: 2
     m_Resolution: -1
     m_CustomResolution: -1
-    m_Strength: 1
-    m_Bias: 0.05
-    m_NormalBias: 0.4
+    m_Strength: 0.474
+    m_Bias: 0
+    m_NormalBias: 0
     m_NearPlane: 0.2
     m_CullingMatrixOverride:
       e00: 1
@@ -586,7 +586,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Version: 3
-  m_UsePipelineSettings: 1
+  m_UsePipelineSettings: 0
   m_AdditionalLightsShadowResolutionTier: 2
   m_LightLayerMask: 1
   m_RenderingLayers: 1
@@ -2054,9 +2054,9 @@ MonoBehaviour:
   navSurface: {fileID: 273244189}
   humanPrefab: {fileID: 4991825780762222915, guid: 3d6b2827589b18448a7be0adb0dd57fd, type: 3}
   zombiePrefab: {fileID: 5563988904170882665, guid: 35f1b3dcc90a70748b76c896e76d296e, type: 3}
-  sunLight: {fileID: 0}
-  nightColor: {r: 0.1, g: 0.1, b: 0.3, a: 1}
-  nightIntensity: 0.2
+  sunLight: {fileID: 410087040}
+  nightColor: {r: 0.1986917, g: 0.1986917, b: 0.4433962, a: 1}
+  nightIntensity: 0.5
   allLevels:
   - {fileID: 11400000, guid: fa20a1142962c8c40b488d74789ae57b, type: 2}
   - {fileID: 11400000, guid: a87d2fef8dbc3bb448b0d20b41ce615c, type: 2}
