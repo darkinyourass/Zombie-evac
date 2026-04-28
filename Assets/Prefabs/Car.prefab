@@ -5158,12 +5158,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
-  loadTime: 15
-  maxCapacity: 5
-  sirenRadius: 8
+  myCardData: {fileID: 11400000, guid: 59e9b6abedec9e244b3334109c1b6208, type: 2}
   crushRadius: 2
   boardingRadius: 1
-  boardingCooldown: 3
   boardPerTick: 1
   dangerRadius: 1
   statusText: {fileID: 5667004255936022288}

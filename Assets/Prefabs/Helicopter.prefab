@@ -587,9 +587,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
-  verticalSpeed: 5
-  maxCapacity: 6
-  attractRadius: 15
+  myCardData: {fileID: 11400000, guid: 0a72315cfb99069488aed8c73ee79c63, type: 2}
   buffRadius: 15
   exitHeight: 30
   landingRadius: 1

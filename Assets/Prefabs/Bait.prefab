@@ -124,9 +124,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2950ab30c10b35949afb5c4e56d0a3c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lifeTime: 6
-  attractRadius: 10
+  myCardData: {fileID: 11400000, guid: 8398faed1ac8c014d9c4a3551736cc5d, type: 2}
   rangeVisual: {fileID: 5589931092099922914}
+  attractRadius: 10
 --- !u!1 &7461009890384291947
 GameObject:
   m_ObjectHideFlags: 0

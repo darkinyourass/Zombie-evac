@@ -13,6 +13,10 @@ public class LevelManager : MonoBehaviour
 	[SerializeField] private GameObject humanPrefab;
 	[SerializeField] private GameObject zombiePrefab;
 
+	[Header("Визуализация Планирования")]
+	[SerializeField] private GameObject indicatorPrefab; // Перетащи сюда SpawnIndicator_Prefab
+	[SerializeField] private float indicatorHeight = 1.5f; // Высота над землей
+
 	[Header("Освещение")]
 	public Light sunLight; // Перетащи сюда Directional Light
 	public Color nightColor = new Color(0.1f, 0.1f, 0.3f); // Темно-синий
@@ -25,6 +29,10 @@ public class LevelManager : MonoBehaviour
 	private int currentLevelIndex = 0;
 	private List<Transform> daySpawnPoints = new List<Transform>();
 	private List<Transform> nightSpawnPoints = new List<Transform>();
+
+	// НОВЫЙ СПИСОК: Для хранения созданных иконок
+	private List<GameObject> activeIndicators = new List<GameObject>();
+
 	public LevelData currentData;
 	private GameObject currentLevelEnvironment;
 
@@ -45,6 +53,9 @@ public class LevelManager : MonoBehaviour
 
 	public void LoadLevel(LevelData data)
 	{
+		// Очищаем старые индикаторы, если уровень перезагружается
+		ClearIndicators();
+
 		currentData = data;
 		if (currentLevelEnvironment != null) Destroy(currentLevelEnvironment);
 		currentLevelEnvironment = Instantiate(data.levelPrefab, Vector3.zero, Quaternion.identity);
@@ -66,9 +77,37 @@ public class LevelManager : MonoBehaviour
 		foreach (GameObject sp in GameObject.FindGameObjectsWithTag("NightSpawn")) nightSpawnPoints.Add(sp.transform);
 		if (nightSpawnPoints.Count == 0) nightSpawnPoints.AddRange(daySpawnPoints);
 
+		// --- СОЗДАЕМ ИНДИКАТОРЫ ДЛЯ ПЛАНИРОВАНИЯ ---
+		SpawnPlanningIndicators();
+
 		SpawnHumans(data.humanCount);
 		GameManager.Instance.SetTotalHumans(GameObject.FindGameObjectsWithTag("Human").Length);
 		GameManager.Instance.SetupTimer(data.levelTimer);
+	}
+
+	// НОВЫЙ МЕТОД: Спавн иконок над точками
+	private void SpawnPlanningIndicators()
+	{
+		if (indicatorPrefab == null) return;
+
+		// Мы показываем только "дневные" спавны в начале, так как SuddenDeath (ночные)
+		// начинаются позже. Но можно заспавнить и те, и другие, если нужно.
+		foreach (Transform sp in daySpawnPoints)
+		{
+			Vector3 pos = sp.position + Vector3.up * indicatorHeight;
+			GameObject indicator = Instantiate(indicatorPrefab, pos, indicatorPrefab.transform.rotation);
+			activeIndicators.Add(indicator);
+		}
+	}
+
+	// НОВЫЙ МЕТОД: Очистка списка
+	private void ClearIndicators()
+	{
+		foreach (GameObject ind in activeIndicators)
+		{
+			if (ind != null) Destroy(ind);
+		}
+		activeIndicators.Clear();
 	}
 
 	private void SpawnHumans(int count)
@@ -82,7 +121,14 @@ public class LevelManager : MonoBehaviour
 		}
 	}
 
-	public void StartInitialSpawns() => StartCoroutine(InitialSpawnRoutine());
+	// ТОЧКА ВХОДА ИЗ GAMEMANAGER при старте боя
+	public void StartInitialSpawns()
+	{
+		// --- ПЕРВЫМ ДЕЛОМ УДАЛЯЕМ ИКОНКИ ПЛАНИРОВАНИЯ ---
+		ClearIndicators();
+
+		StartCoroutine(InitialSpawnRoutine());
+	}
 
 	private IEnumerator InitialSpawnRoutine()
 	{

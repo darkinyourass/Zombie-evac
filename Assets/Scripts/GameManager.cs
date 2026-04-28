@@ -65,36 +65,32 @@ public class GameManager : MonoBehaviour
 	{
 		State = GameState.GameOver;
 
-		// 1. Добавляем спасенных в банк валюты
 		PlayerProfile.Instance.totalCurrency += rescuedHumans;
 
-		// 2. Проверяем лутбокс за первое прохождение
-		// (Используем имя уровня из LevelData как уникальный ID)
 		string levelId = "LevelPassed_" + LevelManager.Instance.currentData.name;
 		int hasPassedBefore = PlayerPrefs.GetInt(levelId, 0);
 
+		CardData droppedCard = null; // Запоминаем выпавшую карту
+
 		if (hasPassedBefore == 0)
 		{
-			// УРОВЕНЬ ПРОЙДЕН ВПЕРВЫЕ!
 			PlayerPrefs.SetInt(levelId, 1);
-
-			// Выдаем валюту из конфига уровня
 			PlayerProfile.Instance.totalCurrency += LevelManager.Instance.currentData.currencyReward;
 
-			// Выдаем карту из конфига уровня
-			if (LevelManager.Instance.currentData.hasCardReward)
+			if (LevelManager.Instance.currentData.levelRewardLootbox != null)
 			{
-				PlayerProfile.Instance.AddCardReward(LevelManager.Instance.currentData.cardReward);
-
-				// Здесь позже мы добавим красивый экран "ВЫ ОТКРЫЛИ КАРТУ!"
-				Debug.Log("ВЫБИТ ЛУТБОКС! Получена карта: " + LevelManager.Instance.currentData.cardReward);
+				// Открываем лутбокс и сохраняем результат
+				droppedCard = LevelManager.Instance.currentData.levelRewardLootbox.OpenBox();
+				if (droppedCard != null)
+				{
+					PlayerProfile.Instance.AddCardReward(droppedCard);
+				}
 			}
 		}
 
-		// Сохраняем прогресс профиля
 		PlayerProfile.Instance.SaveProfile();
 
-		// Показываем обычный экран победы/поражения
-		UIManager.Instance.ShowResultPopup(rescuedHumans, totalHumans);
+		// Передаем карту в интерфейс!
+		UIManager.Instance.ShowResultPopup(rescuedHumans, totalHumans, droppedCard);
 	}
 }

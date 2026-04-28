@@ -9,17 +9,12 @@ public class CarController : MonoBehaviour
 	public enum CarState { DrivingToTarget, Loading, Leaving }
 	public CarState currentState;
 
-	[Header("Настройки Времени")]
-	public float loadTime = 15f;          // Тот самый таймер, который ты просил вернуть
+	[Header("Связь с карточкой")]
+	public CardData myCardData; // Перетащи сюда CardData Машины
 
-	[Header("Настройки Эвакуации")]
-	public int maxCapacity = 5;
-	public float sirenRadius = 20f;
+	[Header("Технические настройки (Не меняются с уровнем)")]
 	public float crushRadius = 2.5f;
-
-	[Header("Посадка и Опасность")]
 	public float boardingRadius = 1.8f;
-	public float boardingCooldown = 0.5f;
 	public int boardPerTick = 1;
 	public float dangerRadius = 2.0f;
 
@@ -27,16 +22,50 @@ public class CarController : MonoBehaviour
 	public TMP_Text statusText;
 	public GameObject sirenRingPrefab;
 
+	// --- ЭТИ СТАТЫ ТЕПЕРЬ БЕРУТСЯ ИЗ CARD DATA ---
+	private int maxCapacity;
+	private float loadTime;
+	private float sirenRadius;
+	private float boardingCooldown;
+
 	private NavMeshAgent agent;
 	private int currentLoad = 0;
 	private Transform exitWaypoint;
 	private bool isTooHot = false;
-	private bool sirenFired = false; // Предохранитель для сирены
+	private bool sirenFired = false;
 
 	private void Awake() => agent = GetComponent<NavMeshAgent>();
 
+	private void Start()
+	{
+		int currentLevel = 1;
+		if (PlayerProfile.Instance != null && myCardData != null)
+		{
+			var progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == myCardData.name);
+			if (progress != null) currentLevel = progress.currentLevel;
+
+			maxCapacity = (int)myCardData.GetCalculatedStat(StatType.Capacity, currentLevel);
+			loadTime = myCardData.GetCalculatedStat(StatType.Duration, currentLevel);
+			sirenRadius = myCardData.GetCalculatedStat(StatType.Radius, currentLevel);
+			boardingCooldown = myCardData.GetCalculatedStat(StatType.Cooldown, currentLevel);
+		}
+		else
+		{
+			Debug.LogWarning("У Машины не назначен CardData! Используем базовые значения.");
+			maxCapacity = 5; loadTime = 15f; sirenRadius = 20f; boardingCooldown = 0.5f;
+		}
+
+		// Страховка от нулевых значений
+		if (loadTime <= 0) loadTime = 15f;
+		if (sirenRadius <= 0) sirenRadius = 20f;
+		if (boardingCooldown <= 0) boardingCooldown = 0.5f;
+		if (maxCapacity <= 0) maxCapacity = 5;
+	}
+
 	public void Launch(Vector3 targetPos)
 	{
+		if (maxCapacity == 0) Start(); // Инициализируем, если Launch вызвался раньше Start
+
 		GameObject[] waypoints = GameObject.FindGameObjectsWithTag("CarWaypoint");
 		if (waypoints.Length < 2) { Destroy(gameObject); return; }
 
@@ -84,19 +113,15 @@ public class CarController : MonoBehaviour
 
 	private IEnumerator CarRoutine()
 	{
-		// 1. Доезжаем
 		while (agent.pathPending || agent.remainingDistance > 1.5f) yield return null;
 
-		// 2. ФАЗА ЗАГРУЗКИ
 		currentState = CarState.Loading;
 		agent.isStopped = true;
-		agent.velocity = Vector3.zero; // Сразу гасим инерцию
+		agent.velocity = Vector3.zero;
 
-		// --- СИРЕНА (ОДИН РАЗ!) ---
 		if (!sirenFired && sirenRingPrefab != null)
 		{
 			GameObject ring = Instantiate(sirenRingPrefab, transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0));
-			// Передаем радиус из настроек машины в эффект!
 			ring.GetComponent<SirenEffect>()?.Setup(sirenRadius, 1.2f);
 
 			Collider[] humansInRange = Physics.OverlapSphere(transform.position, sirenRadius);
@@ -108,20 +133,18 @@ public class CarController : MonoBehaviour
 		}
 
 		float nextBoardTime = 0;
-		float waitTimer = 0; // Таймер нахождения на точке
+		float waitTimer = 0;
 
 		while (currentLoad < maxCapacity && !isTooHot && waitTimer < loadTime)
 		{
-			agent.velocity = Vector3.zero; // Не даем людям её толкать
+			agent.velocity = Vector3.zero;
 			waitTimer += Time.deltaTime;
 
-			// Проверка на зомби
 			Collider[] dangerZone = Physics.OverlapSphere(transform.position, dangerRadius);
 			foreach (var d in dangerZone) if (d.CompareTag("Zombie")) { isTooHot = true; break; }
 
 			if (isTooHot) break;
 
-			// Посадка
 			if (Time.time >= nextBoardTime)
 			{
 				Collider[] humansAtDoors = Physics.OverlapSphere(transform.position, boardingRadius);
@@ -140,7 +163,6 @@ public class CarController : MonoBehaviour
 			yield return null;
 		}
 
-		// 3. УЕЗЖАЕМ
 		UpdateUI();
 		if (isTooHot) yield return new WaitForSeconds(0.8f);
 

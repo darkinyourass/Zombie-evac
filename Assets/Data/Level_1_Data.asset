@@ -23,5 +23,6 @@ MonoBehaviour:
   cameraFieldOfView: 39
   orthographicSize: 10
   currencyReward: 50
-  hasCardReward: 1
+  levelRewardLootbox: {fileID: 11400000, guid: aedfda23cd5572c4dac0817ed913988e, type: 2}
+  hasCardReward: 0
   cardReward: 4

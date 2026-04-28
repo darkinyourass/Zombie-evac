@@ -19,6 +19,7 @@ public class LevelData : ScriptableObject
 
 	[Header("Награда за первое прохождение (Лутбокс)")]
 	public int currencyReward = 50; // Сколько выживших (монет) даем
+	public LootboxData levelRewardLootbox;
 	public bool hasCardReward = false; // Есть ли в коробке карта?
 	public CardManager.CardType cardReward = CardManager.CardType.None; // Какая именно
 }

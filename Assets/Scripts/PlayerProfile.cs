@@ -8,14 +8,18 @@ public class PlayerProfile : MonoBehaviour
 
 	[Header("Данные игрока")]
 	public int totalCurrency = 0;
-	public List<CardManager.CardType> unlockedCards = new List<CardManager.CardType>();
 
-	// Наша колода на 5 слотов (None означает пустой слот)
-	public CardManager.CardType[] currentDeck = new CardManager.CardType[5];
+	[Header("Коллекция и Колода")]
+	public List<CardData> allAvailableCards = new List<CardData>();
+
+	[Tooltip("Перетащи сюда карты, которые игрок получит при первом запуске игры")]
+	public List<CardData> starterCards = new List<CardData>(); // <-- НОВОЕ ПОЛЕ
+
+	public List<CardProgress> ownedCardsProgress = new List<CardProgress>();
+	public CardData[] currentDeck = new CardData[5];
 
 	private void Awake()
 	{
-		// Делаем профиль бессмертным при загрузке новых сцен
 		if (Instance == null)
 		{
 			Instance = this;
@@ -32,52 +36,113 @@ public class PlayerProfile : MonoBehaviour
 	{
 		totalCurrency = PlayerPrefs.GetInt("TotalCurrency", 0);
 
-		// Загружаем открытые карты (по умолчанию открыты только Машина и Солдат)
-		string unlockedStr = PlayerPrefs.GetString("UnlockedCards", "Car,Soldier");
-		unlockedCards = unlockedStr.Split(',')
-			.Select(s => (CardManager.CardType)System.Enum.Parse(typeof(CardManager.CardType), s))
-			.ToList();
-
-		// Загружаем колоду (по умолчанию 2 карты и 3 пустых слота)
-		string deckStr = PlayerPrefs.GetString("CurrentDeck", "Car,Soldier,CombatHelicopter,Bait,Sniper");
-		var deckList = deckStr.Split(',')
-			.Select(s => (CardManager.CardType)System.Enum.Parse(typeof(CardManager.CardType), s))
-			.ToArray();
-
-		for (int i = 0; i < 5; i++)
+		// 1. Загружаем прогресс карт
+		if (PlayerPrefs.HasKey("CardsProgress"))
 		{
-			if (i < deckList.Length) currentDeck[i] = deckList[i];
-			else currentDeck[i] = CardManager.CardType.None;
+			string json = PlayerPrefs.GetString("CardsProgress");
+			var wrapper = JsonUtility.FromJson<SerializationWrapper<CardProgress>>(json);
+			if (wrapper != null && wrapper.target != null)
+			{
+				ownedCardsProgress = wrapper.target;
+			}
+		}
+
+		// 2. Загружаем колоду
+		string deckStr = PlayerPrefs.GetString("CurrentDeck", "");
+		if (!string.IsNullOrEmpty(deckStr))
+		{
+			string[] deckIds = deckStr.Split(',');
+			for (int i = 0; i < 5; i++)
+			{
+				if (i < deckIds.Length && deckIds[i] != "None")
+				{
+					currentDeck[i] = allAvailableCards.Find(c => c.name == deckIds[i]);
+				}
+				else
+				{
+					currentDeck[i] = null;
+				}
+			}
+		}
+		else
+		{
+			GiveStarterCards();
 		}
 	}
 
 	public void SaveProfile()
 	{
 		PlayerPrefs.SetInt("TotalCurrency", totalCurrency);
-		PlayerPrefs.SetString("UnlockedCards", string.Join(",", unlockedCards));
-		PlayerPrefs.SetString("CurrentDeck", string.Join(",", currentDeck));
+
+		string progressJson = JsonUtility.ToJson(new SerializationWrapper<CardProgress>(ownedCardsProgress));
+		PlayerPrefs.SetString("CardsProgress", progressJson);
+
+		string[] deckIds = new string[5];
+		for (int i = 0; i < 5; i++)
+		{
+			deckIds[i] = currentDeck[i] != null ? currentDeck[i].name : "None";
+		}
+		PlayerPrefs.SetString("CurrentDeck", string.Join(",", deckIds));
+
 		PlayerPrefs.Save();
 	}
 
-	// Метод для получения карты из лутбокса
-	public void AddCardReward(CardManager.CardType newCard)
+	public void AddCardReward(CardData newCard)
 	{
-		if (!unlockedCards.Contains(newCard))
-		{
-			unlockedCards.Add(newCard);
-			Debug.Log("Открыта новая карта: " + newCard);
+		if (newCard == null) return;
 
-			// Автоматически кладем в первый пустой слот
+		CardProgress progress = ownedCardsProgress.Find(p => p.cardId == newCard.name);
+
+		if (progress == null)
+		{
+			progress = new CardProgress(newCard.name);
+			ownedCardsProgress.Add(progress);
+			Debug.Log("Открыта новая карта: " + newCard.cardName);
+
 			for (int i = 0; i < 5; i++)
 			{
-				if (currentDeck[i] == CardManager.CardType.None)
+				if (currentDeck[i] == null)
 				{
 					currentDeck[i] = newCard;
 					Debug.Log("Карта добавлена в слот " + i);
 					break;
 				}
 			}
-			SaveProfile();
 		}
+		else
+		{
+			progress.collectedShards++;
+			Debug.Log($"Получен осколок для {newCard.cardName}! Всего: {progress.collectedShards}");
+		}
+
+		SaveProfile();
 	}
+
+	// ТЕПЕРЬ МЫ БЕРЕМ КАРТЫ ИЗ НАСТРОЕК ИНСПЕКТОРА
+	private void GiveStarterCards()
+	{
+		foreach (CardData card in starterCards)
+		{
+			if (card != null) AddCardReward(card);
+		}
+		SaveProfile(); // Жестко сохраняем после выдачи
+	}
+
+	// МЕТОД ДЛЯ ОЧИСТКИ СОХРАНЕНИЙ (чтобы ты мог легко тестить игру с нуля)
+	[ContextMenu("Сбросить весь прогресс (Очистить сохранения)")]
+	public void ResetProfile()
+	{
+		PlayerPrefs.DeleteAll();
+		ownedCardsProgress.Clear();
+		for (int i = 0; i < 5; i++) currentDeck[i] = null;
+		totalCurrency = 0;
+		Debug.LogWarning("ПРОГРЕСС СБРОШЕН! Перезапустите игру.");
+	}
+}
+
+[System.Serializable]
+public class SerializationWrapper<T>
+{
+	public List<T> target;
+	public SerializationWrapper(List<T> target) => this.target = target;
 }

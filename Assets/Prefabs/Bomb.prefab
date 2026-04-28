@@ -121,7 +121,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de37381034a8762498f5ad636107bde4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fallSpeed: 5
-  damageRadius: 3
-  damage: 100
+  myCardData: {fileID: 11400000, guid: d8a1ea659e567ba42ae063f4336990a2, type: 2}
   explosionPrefab: {fileID: 1025285306637258, guid: d8f0099df63275647a8bcf646df1ca00, type: 3}

@@ -260,6 +260,7 @@ GameObject:
   - component: {fileID: 652770038183276068}
   - component: {fileID: 4231873431468977905}
   - component: {fileID: 1780840555504849840}
+  - component: {fileID: 135863767227562127}
   m_Layer: 0
   m_Name: NightSpawn (1)
   m_TagString: NightSpawn
@@ -358,6 +359,21 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+--- !u!114 &135863767227562127
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1094705105737461913}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c05aa8f53a3a57f4fb8191f913f1e4be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gizmoIconName: SkullIcon.png
+  gizmoTintColor: {r: 0, g: 0, b: 0, a: 0.5}
+  gizmoSize: 1
 --- !u!1 &1112102275343473719
 GameObject:
   m_ObjectHideFlags: 0
@@ -1038,6 +1054,7 @@ GameObject:
   - component: {fileID: 2186809453462257149}
   - component: {fileID: 5766575888287609303}
   - component: {fileID: 7594291933009947138}
+  - component: {fileID: 6036415480950672251}
   m_Layer: 0
   m_Name: NightSpawn
   m_TagString: NightSpawn
@@ -1136,6 +1153,21 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+--- !u!114 &6036415480950672251
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4096137630410841748}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c05aa8f53a3a57f4fb8191f913f1e4be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gizmoIconName: SkullIcon.png
+  gizmoTintColor: {r: 0, g: 0, b: 0, a: 0.5}
+  gizmoSize: 1
 --- !u!1 &5456945727392259011
 GameObject:
   m_ObjectHideFlags: 0
@@ -1376,6 +1408,7 @@ GameObject:
   - component: {fileID: 1975938966772388951}
   - component: {fileID: 3133650449371388684}
   - component: {fileID: 6429303478902668975}
+  - component: {fileID: 2381349987879051292}
   m_Layer: 0
   m_Name: NightSpawn (4)
   m_TagString: NightSpawn
@@ -1474,6 +1507,21 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+--- !u!114 &2381349987879051292
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6530780256147522332}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c05aa8f53a3a57f4fb8191f913f1e4be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gizmoIconName: SkullIcon.png
+  gizmoTintColor: {r: 0, g: 0, b: 0, a: 0.5}
+  gizmoSize: 1
 --- !u!1 &6627229939796787347
 GameObject:
   m_ObjectHideFlags: 0
@@ -1625,6 +1673,7 @@ GameObject:
   - component: {fileID: 620566925615918375}
   - component: {fileID: 4453736327038563965}
   - component: {fileID: 6737943832528845557}
+  - component: {fileID: 3760496496020017737}
   m_Layer: 0
   m_Name: ZombieSpawnPoint (1)
   m_TagString: SpawnPoint
@@ -1723,6 +1772,21 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+--- !u!114 &3760496496020017737
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6873774643472522019}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c05aa8f53a3a57f4fb8191f913f1e4be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gizmoIconName: SkullIcon.png
+  gizmoTintColor: {r: 0.8679245, g: 0.11053756, b: 0.11053756, a: 0.5}
+  gizmoSize: 1
 --- !u!1 &6974842598774634221
 GameObject:
   m_ObjectHideFlags: 0
@@ -1883,6 +1947,7 @@ GameObject:
   - component: {fileID: 1839314269106886268}
   - component: {fileID: 1212183822996486241}
   - component: {fileID: 1293090922793566371}
+  - component: {fileID: 3776532373750458871}
   m_Layer: 0
   m_Name: ZombieSpawnPoint
   m_TagString: SpawnPoint
@@ -1981,6 +2046,21 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+--- !u!114 &3776532373750458871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7618306332178630873}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c05aa8f53a3a57f4fb8191f913f1e4be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gizmoIconName: SkullIcon.png
+  gizmoTintColor: {r: 0.8679245, g: 0.11053756, b: 0.11053756, a: 0.5}
+  gizmoSize: 1
 --- !u!1 &7634466416554961821
 GameObject:
   m_ObjectHideFlags: 0
@@ -2132,6 +2212,7 @@ GameObject:
   - component: {fileID: 203146478731819033}
   - component: {fileID: 3540998419693032869}
   - component: {fileID: 3683476172607655642}
+  - component: {fileID: 2410980560374686029}
   m_Layer: 0
   m_Name: NightSpawn (2)
   m_TagString: NightSpawn
@@ -2230,6 +2311,21 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+--- !u!114 &2410980560374686029
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8661157042280637229}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c05aa8f53a3a57f4fb8191f913f1e4be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gizmoIconName: SkullIcon.png
+  gizmoTintColor: {r: 0, g: 0, b: 0, a: 0.5}
+  gizmoSize: 1
 --- !u!1 &8825460152465448524
 GameObject:
   m_ObjectHideFlags: 0

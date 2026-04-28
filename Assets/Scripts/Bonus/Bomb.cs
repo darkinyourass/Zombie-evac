@@ -2,13 +2,16 @@ using UnityEngine;
 
 public class Bomb : MonoBehaviour
 {
-	[Header("Настройки")]
-	public float fallSpeed = 30f;
-	public float damageRadius = 6f;
-	public int damage = 1000;
+	[Header("Связь с карточкой")]
+	public CardData myCardData; // Перетащи сюда CardData Бомбы
 
 	[Header("Визуал")]
 	public GameObject explosionPrefab;
+
+	// Скрытые статы (берутся из CardData)
+	private float damageRadius;
+	private int damage;
+	private float fallSpeed = 30f; // Оставим скорость падения фиксированной, или можешь тоже вынести в статы
 
 	private Vector3 targetPos;
 	private bool isFalling = false;
@@ -16,8 +19,31 @@ public class Bomb : MonoBehaviour
 	private GameObject warningCircle;
 	private LineRenderer circleRenderer;
 
+	private void Start()
+	{
+		// Узнаем уровень и берем статы
+		int currentLevel = 1;
+		if (PlayerProfile.Instance != null && myCardData != null)
+		{
+			var progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == myCardData.name);
+			if (progress != null) currentLevel = progress.currentLevel;
+
+			damageRadius = myCardData.GetCalculatedStat(StatType.Radius, currentLevel);
+			damage = (int)myCardData.GetCalculatedStat(StatType.Damage, currentLevel);
+		}
+		else
+		{
+			Debug.LogWarning("У Бомбы не назначен CardData! Используем базовые значения.");
+			damageRadius = 6f;
+			damage = 1000;
+		}
+	}
+
 	public void Launch(Vector3 pos)
 	{
+		// Запускаем старт, если Launch вызвался раньше Start
+		if (damageRadius == 0) Start();
+
 		targetPos = pos;
 		transform.position = new Vector3(pos.x, startHeight, pos.z);
 		isFalling = true;
@@ -73,8 +99,6 @@ public class Bomb : MonoBehaviour
 		{
 			if (hit.CompareTag("Zombie")) hit.GetComponent<Zombie>()?.TakeDamage(damage);
 			else if (hit.CompareTag("Building")) Destroy(hit.gameObject);
-
-			// ФРЕНДЛИ ФАЙР: Убиваем своих
 			else if (hit.CompareTag("Soldier") || hit.CompareTag("Sniper")) Destroy(hit.gameObject);
 		}
 

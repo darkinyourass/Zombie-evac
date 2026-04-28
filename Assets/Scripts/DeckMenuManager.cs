@@ -5,21 +5,11 @@ using System.Collections.Generic;
 public class DeckMenuManager : MonoBehaviour
 {
 	[Header("Слоты текущей колоды (5 шт)")]
-	public Image[] deckSlots; // 5 картинок слотов
+	public Image[] deckSlots;
 
 	[Header("Инвентарь (Открытые карты)")]
-	public Transform inventoryPanel; // Куда спавнятся доступные карты
-	public GameObject inventoryCardPrefab; // Простая кнопка с Image и Button
-
-	[Header("База картинок")]
-	public List<CardSpriteMapping> cardSprites;
-
-	[System.Serializable]
-	public struct CardSpriteMapping
-	{
-		public CardManager.CardType type;
-		public Sprite icon;
-	}
+	public Transform inventoryPanel;
+	public GameObject inventoryCardPrefab;
 
 	private void Start()
 	{
@@ -28,54 +18,63 @@ public class DeckMenuManager : MonoBehaviour
 
 	public void RefreshUI()
 	{
+		if (PlayerProfile.Instance == null) return;
+
 		// 1. Обновляем 5 слотов колоды
 		for (int i = 0; i < 5; i++)
 		{
-			CardManager.CardType typeInSlot = PlayerProfile.Instance.currentDeck[i];
+			CardData cardInSlot = PlayerProfile.Instance.currentDeck[i];
 			Button btn = deckSlots[i].GetComponent<Button>();
 			btn.onClick.RemoveAllListeners();
 
-			if (typeInSlot != CardManager.CardType.None)
+			if (cardInSlot != null)
 			{
-				deckSlots[i].sprite = GetSprite(typeInSlot);
+				deckSlots[i].sprite = cardInSlot.icon;
 				deckSlots[i].color = Color.white;
 
-				int slotIndex = i; // Обязательно для замыкания
+				int slotIndex = i;
 				btn.onClick.AddListener(() => RemoveFromDeck(slotIndex));
 			}
 			else
 			{
 				deckSlots[i].sprite = null;
-				deckSlots[i].color = new Color(0, 0, 0, 0.5f); // Пустой слот (полупрозрачный)
+				deckSlots[i].color = new Color(0, 0, 0, 0.5f);
 			}
 		}
 
-		// 2. Очищаем инвентарь перед обновлением
+		// 2. Очищаем инвентарь
 		foreach (Transform child in inventoryPanel) Destroy(child.gameObject);
 
 		// 3. Спавним открытые карты, которых ЕЩЕ НЕТ в колоде
-		foreach (CardManager.CardType unlocked in PlayerProfile.Instance.unlockedCards)
+		foreach (CardProgress progress in PlayerProfile.Instance.ownedCardsProgress)
 		{
-			bool inDeck = false;
-			foreach (var d in PlayerProfile.Instance.currentDeck) if (d == unlocked) inDeck = true;
+			CardData unlockedCard = PlayerProfile.Instance.allAvailableCards.Find(c => c.name == progress.cardId);
 
-			if (!inDeck)
+			if (unlockedCard != null)
 			{
-				GameObject btnObj = Instantiate(inventoryCardPrefab, inventoryPanel);
-				btnObj.GetComponent<Image>().sprite = GetSprite(unlocked);
+				bool inDeck = false;
+				foreach (var d in PlayerProfile.Instance.currentDeck)
+				{
+					if (d != null && d.name == unlockedCard.name) inDeck = true;
+				}
 
-				Button btn = btnObj.GetComponent<Button>();
-				btn.onClick.AddListener(() => AddToDeck(unlocked));
+				if (!inDeck)
+				{
+					GameObject btnObj = Instantiate(inventoryCardPrefab, inventoryPanel);
+					btnObj.GetComponent<Image>().sprite = unlockedCard.icon;
+
+					Button btn = btnObj.GetComponent<Button>();
+					btn.onClick.AddListener(() => AddToDeck(unlockedCard));
+				}
 			}
 		}
 	}
 
-	private void AddToDeck(CardManager.CardType card)
+	private void AddToDeck(CardData card)
 	{
-		// Ищем первый пустой слот
 		for (int i = 0; i < 5; i++)
 		{
-			if (PlayerProfile.Instance.currentDeck[i] == CardManager.CardType.None)
+			if (PlayerProfile.Instance.currentDeck[i] == null)
 			{
 				PlayerProfile.Instance.currentDeck[i] = card;
 				PlayerProfile.Instance.SaveProfile();
@@ -83,22 +82,34 @@ public class DeckMenuManager : MonoBehaviour
 				return;
 			}
 		}
-		Debug.Log("Колода полная! Сначала уберите карту.");
+		Debug.LogWarning("Колода полная! Сначала уберите карту.");
 	}
 
 	private void RemoveFromDeck(int slotIndex)
 	{
-		PlayerProfile.Instance.currentDeck[slotIndex] = CardManager.CardType.None;
+		CardData cardToRemove = PlayerProfile.Instance.currentDeck[slotIndex];
+		if (cardToRemove == null) return;
+
+		// --- ПРОВЕРКА НА ЭВАКУАЦИЮ ---
+		if (cardToRemove.category == CardCategory.Evacuation)
+		{
+			int evacuationCardsCount = 0;
+			foreach (var c in PlayerProfile.Instance.currentDeck)
+			{
+				if (c != null && c.category == CardCategory.Evacuation) evacuationCardsCount++;
+			}
+
+			// Если это единственная эвакуация в колоде - удалять нельзя!
+			if (evacuationCardsCount <= 1)
+			{
+				Debug.LogWarning("Действие отменено: В колоде должна быть хотя бы одна карта эвакуации!");
+				// Здесь позже можно вызывать всплывающее окно "Нельзя убрать транспорт!"
+				return;
+			}
+		}
+
+		PlayerProfile.Instance.currentDeck[slotIndex] = null;
 		PlayerProfile.Instance.SaveProfile();
 		RefreshUI();
-	}
-
-	private Sprite GetSprite(CardManager.CardType type)
-	{
-		foreach (var mapping in cardSprites)
-		{
-			if (mapping.type == type) return mapping.icon;
-		}
-		return null;
 	}
 }

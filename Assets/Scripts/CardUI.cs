@@ -6,7 +6,10 @@ using TMPro;
 [RequireComponent(typeof(CanvasGroup))]
 public class CardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
-	public CardManager.CardType cardType;
+	[Header("Связь с карточкой")]
+	public CardData myCardData; // ТЕПЕРЬ СЮДА ПЕРЕДАЕМ CARD DATA, А НЕ ENUM
+
+	[Header("Настройки")]
 	public float cost;
 	public float cooldownTime = 3f;
 
@@ -23,8 +26,6 @@ public class CardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHa
 
 	private bool isOnCooldown = false;
 	private float currentCooldown = 0f;
-
-	// ПРЕДОХРАНИТЕЛЬ
 	private bool isCurrentlyDragging = false;
 
 	private void Awake()
@@ -37,6 +38,12 @@ public class CardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHa
 	{
 		if (cooldownFill != null) cooldownFill.fillAmount = 0;
 		if (timerText != null) timerText.text = "";
+
+		// АВТОМАТИЗАЦИЯ: Сами ставим иконку из базы, если она есть
+		if (myCardData != null && cardImage != null)
+		{
+			cardImage.sprite = myCardData.icon;
+		}
 	}
 
 	private void Update()
@@ -69,24 +76,25 @@ public class CardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHa
 
 	public void OnBeginDrag(PointerEventData eventData)
 	{
-		if (isOnCooldown || EnergyManager.Instance.CurrentEnergy < cost) return;
+		// Проверяем, что CardData вообще назначена
+		if (isOnCooldown || EnergyManager.Instance.CurrentEnergy < cost || myCardData == null) return;
 
-		// Запоминаем всё ДО отрыва
 		originalParent = transform.parent;
 		originalSiblingIndex = transform.GetSiblingIndex();
 		originalAnchoredPos = rectTransform.anchoredPosition;
 
-		transform.SetParent(transform.root, false); // false сохраняет масштаб
+		transform.SetParent(transform.root, false);
 		canvasGroup.blocksRaycasts = false;
 		if (cardImage != null) cardImage.color = new Color(1, 1, 1, 0.5f);
 
-		isCurrentlyDragging = true; // СТАРТ УСПЕШЕН
-		InputManager.Instance.StartDragging(cardType);
+		isCurrentlyDragging = true;
+
+		// ПЕРЕДАЕМ CARD DATA В INPUT MANAGER!
+		InputManager.Instance.StartDragging(myCardData);
 	}
 
 	public void OnDrag(PointerEventData eventData)
 	{
-		// Если старт не удался - игнорируем любые движения мыши!
 		if (!isCurrentlyDragging) return;
 
 		rectTransform.position = eventData.position;
@@ -95,11 +103,9 @@ public class CardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHa
 
 	public void OnEndDrag(PointerEventData eventData)
 	{
-		// Если старт не удался - ничего не делаем!
 		if (!isCurrentlyDragging) return;
-		isCurrentlyDragging = false; // Сбрасываем флаг
+		isCurrentlyDragging = false;
 
-		// ЖЕЛЕЗОБЕТОННЫЙ ВОЗВРАТ
 		transform.SetParent(originalParent, false);
 		transform.SetSiblingIndex(originalSiblingIndex);
 		rectTransform.anchoredPosition = originalAnchoredPos;

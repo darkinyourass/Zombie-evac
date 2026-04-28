@@ -144,8 +144,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2fd9f6c05444f0847b750b89880b59aa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  myCardData: {fileID: 11400000, guid: 0bd17913ae57dce4797965b64cdd1804, type: 2}
   aimDuration: 1.5
-  cooldownDelay: 2
-  attackRange: 25
-  damage: 100
-  lifespan: 15

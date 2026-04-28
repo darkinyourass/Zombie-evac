@@ -3,24 +3,45 @@ using System.Collections;
 
 public class Sniper : MonoBehaviour
 {
-	[Header("Настройки Снайпера")]
-	public float aimDuration = 1.5f; // Сколько секунд целится (светит лазером)
-	public float cooldownDelay = 2.0f; // Пауза после выстрела
-	public float attackRange = 25f;    // Огромный радиус!
-	public int damage = 100;           // Убивает любого зомби сразу
-	public float lifespan = 15f;       // Сколько живет на крыше
+	[Header("Связь с карточкой")]
+	public CardData myCardData;
+
+	[Header("Технические настройки")]
+	public float aimDuration = 1.5f; // Оставляем техническим (время прицеливания)
+
+	// СТАТЫ ИЗ CARD DATA
+	private float cooldownDelay;
+	private float attackRange;
+	private int damage;
+	private float lifespan;
 
 	private bool isExtracting = false;
 	private LineRenderer laserLine;
 
 	private void Start()
 	{
-		// Создаем лазерный прицел
+		int currentLevel = 1;
+		if (PlayerProfile.Instance != null && myCardData != null)
+		{
+			var progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == myCardData.name);
+			if (progress != null) currentLevel = progress.currentLevel;
+
+			cooldownDelay = myCardData.GetCalculatedStat(StatType.Cooldown, currentLevel);
+			attackRange = myCardData.GetCalculatedStat(StatType.Radius, currentLevel);
+			damage = (int)myCardData.GetCalculatedStat(StatType.Damage, currentLevel);
+			lifespan = myCardData.GetCalculatedStat(StatType.Duration, currentLevel);
+		}
+		else
+		{
+			Debug.LogWarning("У Снайпера нет CardData! Берем базу.");
+			cooldownDelay = 2.0f; attackRange = 25f; damage = 100; lifespan = 15f;
+		}
+
 		laserLine = gameObject.AddComponent<LineRenderer>();
-		laserLine.startWidth = 0.02f; // Тонкий красный луч
+		laserLine.startWidth = 0.02f;
 		laserLine.endWidth = 0.02f;
 		laserLine.material = new Material(Shader.Find("Sprites/Default"));
-		laserLine.startColor = new Color(1, 0, 0, 0.5f); // Прозрачный красный
+		laserLine.startColor = new Color(1, 0, 0, 0.5f);
 		laserLine.endColor = new Color(1, 0, 0, 0.5f);
 		laserLine.enabled = false;
 
@@ -54,21 +75,18 @@ public class Sniper : MonoBehaviour
 			Zombie target = FindTarget();
 			if (target != null)
 			{
-				// ФАЗА 1: ПРИЦЕЛИВАНИЕ
 				laserLine.enabled = true;
 				float aimTimer = 0f;
 				bool targetLost = false;
 
 				while (aimTimer < aimDuration)
 				{
-					// Если зомби умер или зашел за стену во время прицеливания - сбрасываем прицел
 					if (target == null || !HasLineOfSight(target.transform))
 					{
 						targetLost = true;
 						break;
 					}
 
-					// Ведем лазер за зомби
 					laserLine.SetPosition(0, transform.position + Vector3.up * 1.5f);
 					laserLine.SetPosition(1, target.transform.position + Vector3.up);
 
@@ -76,29 +94,24 @@ public class Sniper : MonoBehaviour
 					yield return null;
 				}
 
-				// ФАЗА 2: ВЫСТРЕЛ
 				if (!targetLost && target != null)
 				{
-					// Делаем лазер жирным и ярким на долю секунды
 					laserLine.startWidth = 0.1f;
 					laserLine.startColor = Color.red;
 
 					target.TakeDamage(damage);
 					yield return new WaitForSeconds(0.1f);
 
-					// Возвращаем тонкий лазер
 					laserLine.startWidth = 0.02f;
 					laserLine.startColor = new Color(1, 0, 0, 0.5f);
 				}
 
 				laserLine.enabled = false;
-
-				// ФАЗА 3: ПЕРЕЗАРЯДКА
 				yield return new WaitForSeconds(cooldownDelay);
 			}
 			else
 			{
-				yield return new WaitForSeconds(0.5f); // Ищем цель
+				yield return new WaitForSeconds(0.5f);
 			}
 		}
 	}

@@ -4,17 +4,9 @@ public class InputManager : MonoBehaviour
 {
 	public static InputManager Instance;
 
-	[Header("Оригинальные Префабы")]
-	public GameObject helicopterPrefab;
-	public GameObject soldierPrefab;
-	public GameObject baitPrefab;
-	public GameObject bombPrefab;
-	public GameObject carPrefab;
-	public GameObject sniperPrefab;
-	public GameObject combatHelicopterPrefab;
-
 	private Camera mainCam;
-	private CardManager.CardType draggingCard = CardManager.CardType.None; // По умолчанию пусто
+	// ТЕПЕРЬ МЫ ТЯНЕМ НЕ ПРОСТО ENUM, А САМУ КАРТОЧКУ (CARD DATA)
+	private CardData draggingCard = null;
 	private bool isDragging;
 	private LineRenderer radiusCircle;
 
@@ -32,15 +24,16 @@ public class InputManager : MonoBehaviour
 		radiusCircle.enabled = false;
 	}
 
-	public void StartDragging(CardManager.CardType type)
+	// Изменили входящий параметр с CardType на CardData
+	public void StartDragging(CardData card)
 	{
-		draggingCard = type;
+		draggingCard = card;
 		isDragging = true;
 	}
 
 	public void UpdateDragging(Vector2 screenPos)
 	{
-		if (!isDragging || draggingCard == CardManager.CardType.None) return;
+		if (!isDragging || draggingCard == null) return;
 
 		Ray ray = mainCam.ScreenPointToRay(screenPos);
 		if (Physics.Raycast(ray, out RaycastHit hit))
@@ -52,11 +45,11 @@ public class InputManager : MonoBehaviour
 			bool isBuilding = hit.collider.CompareTag("Building");
 			bool canPlace = !isUI;
 
-			if (draggingCard == CardManager.CardType.Sniper)
+			if (draggingCard.cardType == CardManager.CardType.Sniper)
 			{
 				if (!isBuilding) canPlace = false;
 			}
-			else if (draggingCard != CardManager.CardType.Bomb)
+			else if (draggingCard.cardType != CardManager.CardType.Bomb)
 			{
 				if (isBuilding) canPlace = false;
 			}
@@ -81,9 +74,8 @@ public class InputManager : MonoBehaviour
 		isDragging = false;
 		radiusCircle.enabled = false;
 
-		// Запоминаем текущую карту и СБРАСЫВАЕМ память (предохранитель!)
-		CardManager.CardType cardToPlay = draggingCard;
-		draggingCard = CardManager.CardType.None;
+		CardData cardToPlay = draggingCard;
+		draggingCard = null;
 
 		if (Input.mousePosition.y < Screen.height * 0.25f) return false;
 
@@ -92,8 +84,8 @@ public class InputManager : MonoBehaviour
 		{
 			bool isBuilding = hit.collider.CompareTag("Building");
 
-			if (cardToPlay == CardManager.CardType.Sniper && !isBuilding) return false;
-			if (cardToPlay != CardManager.CardType.Bomb && cardToPlay != CardManager.CardType.Sniper && isBuilding) return false;
+			if (cardToPlay.cardType == CardManager.CardType.Sniper && !isBuilding) return false;
+			if (cardToPlay.cardType != CardManager.CardType.Bomb && cardToPlay.cardType != CardManager.CardType.Sniper && isBuilding) return false;
 
 			ExecuteCardLogic(cardToPlay, hit.point);
 
@@ -120,56 +112,67 @@ public class InputManager : MonoBehaviour
 		}
 	}
 
-	private float GetCardRadius(CardManager.CardType type)
+	// НОВАЯ ЛОГИКА: Берем радиус напрямую из CardData с учетом уровня игрока!
+	private float GetCardRadius(CardData card)
 	{
-		switch (type)
+		int currentLevel = 1;
+		if (PlayerProfile.Instance != null)
 		{
-			case CardManager.CardType.Helicopter:
-				return helicopterPrefab ? helicopterPrefab.GetComponent<HelicopterController>().attractRadius : 12f;
-			case CardManager.CardType.Soldier:
-				return soldierPrefab ? soldierPrefab.GetComponent<Soldier>().attackRange : 12f;
-			case CardManager.CardType.Bomb:
-				return bombPrefab ? bombPrefab.GetComponent<Bomb>().damageRadius : 6f;
-			case CardManager.CardType.Car:
-				return 4f;
-			case CardManager.CardType.Sniper:
-				return sniperPrefab ? sniperPrefab.GetComponent<Sniper>().attackRange : 25f;
-			case CardManager.CardType.CombatHelicopter:
-				return 6f; // Радиус посадки тяжелого вертолета
-			default: return 5f;
+			var progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == card.name);
+			if (progress != null) currentLevel = progress.currentLevel;
 		}
+
+		// Просим CardData саму посчитать радиус
+		float radius = card.GetCalculatedStat(StatType.Radius, currentLevel);
+
+		// Если радиус не назначен в Инспекторе (например, для Солдата мы еще не настроили),
+		// даем базовые значения, чтобы игра не сломалась.
+		if (radius <= 0)
+		{
+			switch (card.cardType)
+			{
+				case CardManager.CardType.Car: return 4f;
+				case CardManager.CardType.Soldier: return 12f;
+				case CardManager.CardType.Sniper: return 25f;
+				case CardManager.CardType.Helicopter: return 12f;
+				default: return 5f;
+			}
+		}
+		return radius;
 	}
 
-	private void ExecuteCardLogic(CardManager.CardType card, Vector3 pos)
+	// НОВАЯ ЛОГИКА: Берем префаб прямо из карточки (card.cardPrefab)
+	private void ExecuteCardLogic(CardData card, Vector3 pos)
 	{
+		if (card.cardPrefab == null)
+		{
+			Debug.LogError($"Префаб не назначен в CardData для {card.cardName}!");
+			return;
+		}
+
 		GameObject spawnedObject = null;
-		switch (card)
+		switch (card.cardType)
 		{
 			case CardManager.CardType.Helicopter:
-				spawnedObject = Instantiate(helicopterPrefab);
+				spawnedObject = Instantiate(card.cardPrefab);
 				spawnedObject.GetComponent<HelicopterController>().Launch(pos);
 				break;
-			case CardManager.CardType.Soldier:
-				Instantiate(soldierPrefab, pos, Quaternion.identity);
-				break;
-			case CardManager.CardType.Bait:
-				Instantiate(baitPrefab, pos, Quaternion.identity);
-				break;
 			case CardManager.CardType.Bomb:
-				spawnedObject = Instantiate(bombPrefab);
+				spawnedObject = Instantiate(card.cardPrefab);
 				spawnedObject.GetComponent<Bomb>().Launch(pos);
 				break;
 			case CardManager.CardType.Car:
-				spawnedObject = Instantiate(carPrefab);
+				spawnedObject = Instantiate(card.cardPrefab);
 				spawnedObject.GetComponent<CarController>().Launch(pos);
 				break;
-			case CardManager.CardType.Sniper:
-				Instantiate(sniperPrefab, pos, Quaternion.identity);
-				break;
-			// --- НОВЫЙ БЛОК ДЛЯ БОЕВОГО ВЕРТОЛЕТА ---
 			case CardManager.CardType.CombatHelicopter:
-				spawnedObject = Instantiate(combatHelicopterPrefab);
-				spawnedObject.GetComponent<CombatHelicopter>().Launch(pos);
+				spawnedObject = Instantiate(card.cardPrefab);
+				// Предполагаю, что у него тоже есть Launch
+				spawnedObject.SendMessage("Launch", pos, SendMessageOptions.DontRequireReceiver);
+				break;
+			default:
+				// Soldier, Bait, Sniper просто спавнятся в точке клика
+				Instantiate(card.cardPrefab, pos, Quaternion.identity);
 				break;
 		}
 	}

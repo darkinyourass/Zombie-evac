@@ -260,8 +260,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 160, y: 30}
+  m_AnchoredPosition: {x: 0, y: 438}
+  m_SizeDelta: {x: 360, y: 150}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &382454210
 MonoBehaviour:
@@ -515,8 +515,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_AnchoredPosition: {x: 0, y: -228}
+  m_SizeDelta: {x: 1000, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &707147201
 MonoBehaviour:
@@ -664,6 +664,68 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 721741363}
   m_CullTransparentMesh: 1
+--- !u!1 &829603113
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 829603115}
+  - component: {fileID: 829603114}
+  m_Layer: 0
+  m_Name: PlayerProfile
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &829603114
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 829603113}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7ec6656d432ee64f87e864f16e36b0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  totalCurrency: 0
+  allAvailableCards:
+  - {fileID: 11400000, guid: 8398faed1ac8c014d9c4a3551736cc5d, type: 2}
+  - {fileID: 11400000, guid: d8a1ea659e567ba42ae063f4336990a2, type: 2}
+  - {fileID: 11400000, guid: 59e9b6abedec9e244b3334109c1b6208, type: 2}
+  - {fileID: 11400000, guid: 0a72315cfb99069488aed8c73ee79c63, type: 2}
+  - {fileID: 11400000, guid: 0bd17913ae57dce4797965b64cdd1804, type: 2}
+  - {fileID: 11400000, guid: b3084314811ba144aa8a8bb8a317d51c, type: 2}
+  starterCards:
+  - {fileID: 11400000, guid: 59e9b6abedec9e244b3334109c1b6208, type: 2}
+  - {fileID: 11400000, guid: b3084314811ba144aa8a8bb8a317d51c, type: 2}
+  ownedCardsProgress: []
+  currentDeck:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+--- !u!4 &829603115
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 829603113}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1054479608
 GameObject:
   m_ObjectHideFlags: 0
@@ -848,8 +910,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   totalCurrency: 0
-  unlockedCards: 
-  currentDeck: 0000000000000000000000000000000000000000
+  allAvailableCards: []
+  starterCards: []
+  ownedCardsProgress: []
+  currentDeck: []
 --- !u!4 &1187768762
 Transform:
   m_ObjectHideFlags: 0
@@ -1250,19 +1314,6 @@ MonoBehaviour:
   - {fileID: 721741366}
   inventoryPanel: {fileID: 1054479609}
   inventoryCardPrefab: {fileID: 8109045136375346022, guid: 639de94483a8fb242859c5ef0ef66e24, type: 3}
-  cardSprites:
-  - type: 1
-    icon: {fileID: -497568770147540219, guid: 215687feeab0b7445b4a1cd86c82c2e1, type: 3}
-  - type: 2
-    icon: {fileID: 1260782343283211980, guid: 215687feeab0b7445b4a1cd86c82c2e1, type: 3}
-  - type: 3
-    icon: {fileID: 8706619048834826526, guid: 215687feeab0b7445b4a1cd86c82c2e1, type: 3}
-  - type: 4
-    icon: {fileID: -1999946806344817058, guid: 215687feeab0b7445b4a1cd86c82c2e1, type: 3}
-  - type: 5
-    icon: {fileID: -5536544251107829900, guid: 215687feeab0b7445b4a1cd86c82c2e1, type: 3}
-  - type: 6
-    icon: {fileID: 5390246818323809478, guid: 215687feeab0b7445b4a1cd86c82c2e1, type: 3}
 --- !u!1 &1896851996
 GameObject:
   m_ObjectHideFlags: 0
@@ -1891,3 +1942,4 @@ SceneRoots:
   - {fileID: 1062770588}
   - {fileID: 1187768762}
   - {fileID: 1254159264}
+  - {fileID: 829603115}

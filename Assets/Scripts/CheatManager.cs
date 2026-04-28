@@ -95,17 +95,21 @@ public class CheatManager : MonoBehaviour
 		if (PlayerProfile.Instance != null)
 		{
 			PlayerProfile.Instance.totalCurrency += 10000;
-			foreach (CardManager.CardType card in System.Enum.GetValues(typeof(CardManager.CardType)))
+
+			// Открываем абсолютно все карты, которые есть в базе профиля
+			foreach (CardData card in PlayerProfile.Instance.allAvailableCards)
 			{
-				if (card != CardManager.CardType.None && !PlayerProfile.Instance.unlockedCards.Contains(card))
+				// Проверяем, есть ли уже такая карта у игрока
+				CardProgress progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == card.name);
+				if (progress == null)
 				{
-					PlayerProfile.Instance.unlockedCards.Add(card);
+					// Добавляем карту, если ее не было
+					PlayerProfile.Instance.ownedCardsProgress.Add(new CardProgress(card.name));
 				}
 			}
+
 			PlayerProfile.Instance.SaveProfile();
 
-			// ИСПРАВЛЕНИЕ: Мгновенное обновление меню!
-			// Ищем скрипт меню на сцене и заставляем его перерисовать карточки
 			DeckMenuManager menu = FindAnyObjectByType<DeckMenuManager>();
 			if (menu != null) menu.RefreshUI();
 

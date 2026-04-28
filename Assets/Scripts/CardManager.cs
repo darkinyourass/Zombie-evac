@@ -3,22 +3,13 @@ using System.Collections.Generic;
 
 public class CardManager : MonoBehaviour
 {
+	// Оставляем CardType чисто для связи внутри префабов карточек (если он там используется)
 	public enum CardType { None, Helicopter, Soldier, Bait, Bomb, Car, Sniper, CombatHelicopter };
+
 	public static CardManager Instance;
 
 	[Header("Куда спавнить карты?")]
-	public Transform cardsPanel; // Контейнер внизу экрана (Horizontal Layout Group)
-
-	[Header("Префабы UI-карточек")]
-	[Tooltip("Настрой, какая UI-кнопка соответствует какой карте")]
-	public List<CardDataMapping> cardPrefabs;
-
-	[System.Serializable]
-	public struct CardDataMapping
-	{
-		public CardType type;
-		public GameObject uiPrefab; // Префаб самой кнопки с картинкой и скриптом CardUI
-	}
+	public Transform cardsPanel;
 
 	private void Awake() => Instance = this;
 
@@ -29,41 +20,29 @@ public class CardManager : MonoBehaviour
 
 	private void SpawnDeck()
 	{
-		// 1. Очищаем панель (если там лежали тестовые карты)
+		// 1. Очищаем панель
 		foreach (Transform child in cardsPanel)
 		{
 			Destroy(child.gameObject);
 		}
 
-		// 2. Проверяем, есть ли профиль (на случай запуска сразу с игровой сцены)
 		if (PlayerProfile.Instance == null)
 		{
-			Debug.LogWarning("PlayerProfile не найден! Играем тестовой колодой (Машина, Солдат).");
-			// Если мы тестируем уровень, создадим временный профиль
-			GameObject tempProfile = new GameObject("TempProfile");
-			tempProfile.AddComponent<PlayerProfile>();
+			Debug.LogError("PlayerProfile не найден! Сначала запустите Главное Меню.");
+			return;
 		}
 
-		// 3. Спавним карты из колоды!
-		foreach (CardType type in PlayerProfile.Instance.currentDeck)
+		// 2. Спавним карты из колоды (теперь мы перебираем CardData)
+		foreach (CardData card in PlayerProfile.Instance.currentDeck)
 		{
-			if (type != CardType.None)
+			if (card != null && card.uiButtonPrefab != null)
 			{
-				GameObject prefabToSpawn = GetCardPrefab(type);
-				if (prefabToSpawn != null)
-				{
-					Instantiate(prefabToSpawn, cardsPanel);
-				}
+				Instantiate(card.uiButtonPrefab, cardsPanel);
+			}
+			else if (card != null && card.uiButtonPrefab == null)
+			{
+				Debug.LogWarning($"У карты {card.cardName} не назначен UI префаб кнопки!");
 			}
 		}
-	}
-
-	private GameObject GetCardPrefab(CardType type)
-	{
-		foreach (var mapping in cardPrefabs)
-		{
-			if (mapping.type == type) return mapping.uiPrefab;
-		}
-		return null;
 	}
 }

@@ -587,10 +587,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
-  flySpeed: 25
-  loadTime: 5
-  maxCapacity: 10
+  myCardData: {fileID: 11400000, guid: 1c757795683951a4eb7ebe82058437a3, type: 2}
   pickupRadius: 6
-  shootRadius: 20
-  fireRate: 0.4
-  sniperDamage: 15

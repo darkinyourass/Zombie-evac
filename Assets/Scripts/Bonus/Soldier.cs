@@ -4,11 +4,14 @@ using System.Collections.Generic;
 
 public class Soldier : MonoBehaviour
 {
-	[Header("Настройки Боя")]
-	public float fireRate = 1.5f;
-	public float attackRange = 12f;
-	public int damage = 20;
-	public float lifespan = 8f;
+	[Header("Связь с карточкой")]
+	public CardData myCardData;
+
+	// СТАТЫ ИЗ CARD DATA
+	private float fireRate;
+	private float attackRange;
+	private int damage;
+	private float lifespan;
 
 	private float currentFireRate;
 	private float buffTimer = 0f;
@@ -20,6 +23,23 @@ public class Soldier : MonoBehaviour
 
 	private void Start()
 	{
+		int currentLevel = 1;
+		if (PlayerProfile.Instance != null && myCardData != null)
+		{
+			var progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == myCardData.name);
+			if (progress != null) currentLevel = progress.currentLevel;
+
+			fireRate = myCardData.GetCalculatedStat(StatType.FireRate, currentLevel);
+			attackRange = myCardData.GetCalculatedStat(StatType.Radius, currentLevel);
+			damage = (int)myCardData.GetCalculatedStat(StatType.Damage, currentLevel);
+			lifespan = myCardData.GetCalculatedStat(StatType.Duration, currentLevel);
+		}
+		else
+		{
+			Debug.LogWarning("У Солдата нет CardData! Берем базу.");
+			fireRate = 1.5f; attackRange = 12f; damage = 20; lifespan = 8f;
+		}
+
 		currentFireRate = fireRate;
 		allRenderers = GetComponentsInChildren<Renderer>();
 
@@ -105,7 +125,6 @@ public class Soldier : MonoBehaviour
 			if (z == null) continue;
 			float d = Vector3.Distance(transform.position, z.transform.position);
 
-			// ПРОВЕРКА СТЕН: Пускаем луч от груди солдата до груди зомби
 			if (d < minD && HasLineOfSight(z.transform))
 			{
 				minD = d; best = z;
@@ -119,7 +138,6 @@ public class Soldier : MonoBehaviour
 		Vector3 start = transform.position + Vector3.up * 1.5f;
 		Vector3 end = target.position + Vector3.up * 1.0f;
 
-		// Если луч столкнулся со зданием - зомби за стеной!
 		if (Physics.Linecast(start, end, out RaycastHit hit))
 		{
 			if (hit.collider.CompareTag("Building")) return false;

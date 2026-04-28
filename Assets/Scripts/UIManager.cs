@@ -100,8 +100,8 @@ public class UIManager : MonoBehaviour
 		centerNightText.gameObject.SetActive(false);
 	}
 
-	public void ShowResultPopup(int rescued, int total)
+	public void ShowResultPopup(int rescued, int total, CardData reward = null)
 	{
-		if (resultPopup != null) resultPopup.Show(rescued, total);
+		if (resultPopup != null) resultPopup.Show(rescued, total, reward);
 	}
 }

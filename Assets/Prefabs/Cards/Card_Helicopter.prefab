@@ -364,7 +364,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 732caeacbb98fe2409421dcb0d4230e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cardType: 1
+  myCardData: {fileID: 11400000, guid: 0a72315cfb99069488aed8c73ee79c63, type: 2}
   cost: 6
   cooldownTime: 15
   cardImage: {fileID: 2721755133437528500}
