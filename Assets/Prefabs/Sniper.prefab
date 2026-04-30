@@ -145,4 +145,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   myCardData: {fileID: 11400000, guid: 0bd17913ae57dce4797965b64cdd1804, type: 2}
-  aimDuration: 1.5
+  aimDuration: 1

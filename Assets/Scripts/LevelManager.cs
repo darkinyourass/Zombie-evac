@@ -14,12 +14,12 @@ public class LevelManager : MonoBehaviour
 	[SerializeField] private GameObject zombiePrefab;
 
 	[Header("Визуализация Планирования")]
-	[SerializeField] private GameObject indicatorPrefab; // Перетащи сюда SpawnIndicator_Prefab
-	[SerializeField] private float indicatorHeight = 1.5f; // Высота над землей
+	[SerializeField] private GameObject indicatorPrefab;
+	[SerializeField] private float indicatorHeight = 1.5f;
 
 	[Header("Освещение")]
-	public Light sunLight; // Перетащи сюда Directional Light
-	public Color nightColor = new Color(0.1f, 0.1f, 0.3f); // Темно-синий
+	public Light sunLight;
+	public Color nightColor = new Color(0.1f, 0.1f, 0.3f);
 	public float nightIntensity = 0.2f;
 
 	private Color dayColor;
@@ -30,7 +30,6 @@ public class LevelManager : MonoBehaviour
 	private List<Transform> daySpawnPoints = new List<Transform>();
 	private List<Transform> nightSpawnPoints = new List<Transform>();
 
-	// НОВЫЙ СПИСОК: Для хранения созданных иконок
 	private List<GameObject> activeIndicators = new List<GameObject>();
 
 	public LevelData currentData;
@@ -53,20 +52,23 @@ public class LevelManager : MonoBehaviour
 
 	public void LoadLevel(LevelData data)
 	{
-		// Очищаем старые индикаторы, если уровень перезагружается
 		ClearIndicators();
 
 		currentData = data;
 		if (currentLevelEnvironment != null) Destroy(currentLevelEnvironment);
 		currentLevelEnvironment = Instantiate(data.levelPrefab, Vector3.zero, Quaternion.identity);
 
-		if (Camera.main != null)
+		// --- ВОТ ОН ШАГ 3 ---
+		// Старый хардкод удален. Теперь мы просто передаем Data в наш новый CameraController
+		if (CameraController.Instance != null)
 		{
-			Camera.main.transform.position = data.cameraPosition;
-			Camera.main.transform.rotation = Quaternion.Euler(data.cameraRotation);
-			Camera.main.fieldOfView = data.cameraFieldOfView;
-			if (Camera.main.orthographic) Camera.main.orthographicSize = data.orthographicSize;
+			CameraController.Instance.SetupCamera(data);
 		}
+		else
+		{
+			Debug.LogWarning("CameraController не найден! Убедись, что скрипт висит на Main Camera.");
+		}
+		// ---------------------
 
 		if (navSurface != null) navSurface.BuildNavMesh();
 
@@ -77,7 +79,6 @@ public class LevelManager : MonoBehaviour
 		foreach (GameObject sp in GameObject.FindGameObjectsWithTag("NightSpawn")) nightSpawnPoints.Add(sp.transform);
 		if (nightSpawnPoints.Count == 0) nightSpawnPoints.AddRange(daySpawnPoints);
 
-		// --- СОЗДАЕМ ИНДИКАТОРЫ ДЛЯ ПЛАНИРОВАНИЯ ---
 		SpawnPlanningIndicators();
 
 		SpawnHumans(data.humanCount);
@@ -85,13 +86,10 @@ public class LevelManager : MonoBehaviour
 		GameManager.Instance.SetupTimer(data.levelTimer);
 	}
 
-	// НОВЫЙ МЕТОД: Спавн иконок над точками
 	private void SpawnPlanningIndicators()
 	{
 		if (indicatorPrefab == null) return;
 
-		// Мы показываем только "дневные" спавны в начале, так как SuddenDeath (ночные)
-		// начинаются позже. Но можно заспавнить и те, и другие, если нужно.
 		foreach (Transform sp in daySpawnPoints)
 		{
 			Vector3 pos = sp.position + Vector3.up * indicatorHeight;
@@ -100,7 +98,6 @@ public class LevelManager : MonoBehaviour
 		}
 	}
 
-	// НОВЫЙ МЕТОД: Очистка списка
 	private void ClearIndicators()
 	{
 		foreach (GameObject ind in activeIndicators)
@@ -121,12 +118,9 @@ public class LevelManager : MonoBehaviour
 		}
 	}
 
-	// ТОЧКА ВХОДА ИЗ GAMEMANAGER при старте боя
 	public void StartInitialSpawns()
 	{
-		// --- ПЕРВЫМ ДЕЛОМ УДАЛЯЕМ ИКОНКИ ПЛАНИРОВАНИЯ ---
 		ClearIndicators();
-
 		StartCoroutine(InitialSpawnRoutine());
 	}
 
@@ -152,8 +146,6 @@ public class LevelManager : MonoBehaviour
 
 		float transitionTime = 2f;
 		float t = 0;
-
-		// Запоминаем, насколько сильно светило небо днем
 		float startAmbient = RenderSettings.ambientIntensity;
 
 		while (t < 1)
@@ -161,10 +153,7 @@ public class LevelManager : MonoBehaviour
 			t += Time.deltaTime / transitionTime;
 			sunLight.color = Color.Lerp(dayColor, nightColor, t);
 			sunLight.intensity = Mathf.Lerp(dayIntensity, nightIntensity, t);
-
-			// Плавно гасим свечение самого неба (от дневного до 0.1)
 			RenderSettings.ambientIntensity = Mathf.Lerp(startAmbient, 0.1f, t);
-
 			yield return null;
 		}
 	}

@@ -13,16 +13,15 @@ MonoBehaviour:
   m_Name: Level_1_Data
   m_EditorClassIdentifier: 
   levelPrefab: {fileID: 4058927015439930953, guid: dfd3daade42240940921240ac4707066, type: 3}
-  humanCount: 20
-  levelTimer: 30
-  initialZombies: 30
+  humanCount: 50
+  levelTimer: 15
+  initialZombies: 50
   initialSpawnDelay: 0.5
   suddenDeathSpawnRate: 0.2
+  cameraType: 0
   cameraPosition: {x: -2.78, y: 56.73, z: -2.69}
   cameraRotation: {x: 90, y: 0, z: 0}
   cameraFieldOfView: 39
   orthographicSize: 10
   currencyReward: 50
   levelRewardLootbox: {fileID: 11400000, guid: aedfda23cd5572c4dac0817ed913988e, type: 2}
-  hasCardReward: 0
-  cardReward: 4

@@ -3,6 +3,8 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "NewLevel", menuName = "ZombieGame/LevelData")]
 public class LevelData : ScriptableObject
 {
+	public enum CameraType { Perspective, Orthographic }
+
 	[Header("Базовые настройки")]
 	public GameObject levelPrefab;
 	public int humanCount = 25;
@@ -11,15 +13,15 @@ public class LevelData : ScriptableObject
 	public float initialSpawnDelay = 0.5f;
 	public float suddenDeathSpawnRate = 0.3f;
 
-	[Header("Настройки Камеры (Туториал)")]
+	[Header("Настройки Камеры Уровня")]
+	public CameraType cameraType = CameraType.Perspective; // <-- Тот самый переключатель
 	public Vector3 cameraPosition = new Vector3(0, 20, -15);
 	public Vector3 cameraRotation = new Vector3(60, 0, 0);
-	public float cameraFieldOfView = 60f; // Для обычного зума
-	public float orthographicSize = 10f;  // Если используешь Orthographic камеру
+	public float cameraFieldOfView = 60f; // Для Perspective
+	public float orthographicSize = 10f;  // Для Orthographic
 
-	[Header("Награда за первое прохождение (Лутбокс)")]
-	public int currencyReward = 50; // Сколько выживших (монет) даем
+	[Header("Награда за первое прохождение")]
+	public int currencyReward = 50; // Сколько валюты (софта) даем
 	public LootboxData levelRewardLootbox;
-	public bool hasCardReward = false; // Есть ли в коробке карта?
-	public CardManager.CardType cardReward = CardManager.CardType.None; // Какая именно
+
 }
