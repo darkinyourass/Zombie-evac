@@ -1,11 +1,16 @@
 using UnityEngine;
 
+// [ГДЕ ВИСИТ]: На пустом объекте (InputManager) на боевой сцене.
+// [НАСТРОЙКИ]: В инспекторе появится поле Invalid Placement Icon. Туда нужно закинуть префаб крестика.
 public class InputManager : MonoBehaviour
 {
 	public static InputManager Instance;
 
+	[Header("Визуал")]
+	[Tooltip("Объект с красным крестиком (SpriteRenderer), который появляется при ошибке")]
+	public GameObject invalidPlacementIcon; // <-- НОВОЕ ПОЛЕ ДЛЯ КРЕСТИКА
+
 	private Camera mainCam;
-	// ТЕПЕРЬ МЫ ТЯНЕМ НЕ ПРОСТО ENUM, А САМУ КАРТОЧКУ (CARD DATA)
 	private CardData draggingCard = null;
 	private bool isDragging;
 	private LineRenderer radiusCircle;
@@ -22,9 +27,11 @@ public class InputManager : MonoBehaviour
 		radiusCircle.material = new Material(Shader.Find("Sprites/Default"));
 		radiusCircle.loop = true;
 		radiusCircle.enabled = false;
+
+		// Прячем крестик на старте, если он уже на сцене
+		if (invalidPlacementIcon != null) invalidPlacementIcon.SetActive(false);
 	}
 
-	// Изменили входящий параметр с CardType на CardData
 	public void StartDragging(CardData card)
 	{
 		draggingCard = card;
@@ -45,24 +52,43 @@ public class InputManager : MonoBehaviour
 			bool isBuilding = hit.collider.CompareTag("Building");
 			bool canPlace = !isUI;
 
+			// --- ЛОГИКА РАЗРЕШЕНИЙ ---
 			if (draggingCard.cardType == CardManager.CardType.Sniper)
 			{
-				if (!isBuilding) canPlace = false;
+				if (!isBuilding) canPlace = false; // Снайпер ТОЛЬКО на здания
 			}
-			else if (draggingCard.cardType != CardManager.CardType.Bomb)
+			else if (draggingCard.cardType == CardManager.CardType.Bomb)
 			{
-				if (isBuilding) canPlace = false;
+				// Бомбу можно кидать куда угодно (здания она ломает)
+			}
+			else
+			{
+				if (isBuilding) canPlace = false; // Всех остальных (Солдат, Машина и тд) на здания НЕЛЬЗЯ
 			}
 
+			// --- УПРАВЛЕНИЕ ВИЗУАЛОМ (КРУГ И КРЕСТИК) ---
 			if (!canPlace)
 			{
 				radiusCircle.startColor = new Color(1, 0, 0, 0.5f);
 				radiusCircle.endColor = new Color(1, 0, 0, 0.5f);
+
+				// Показываем крестик чуть выше точки касания
+				if (invalidPlacementIcon != null)
+				{
+					invalidPlacementIcon.SetActive(true);
+					// Приподнимаем на 1 метр, чтобы не проваливался в текстуру крыши
+					invalidPlacementIcon.transform.position = hit.point + Vector3.up * 1.5f;
+
+					// Поворачиваем крестик лицом к камере (чтобы всегда было видно)
+					invalidPlacementIcon.transform.forward = mainCam.transform.forward;
+				}
 			}
 			else
 			{
 				radiusCircle.startColor = new Color(0, 1, 0, 0.5f);
 				radiusCircle.endColor = new Color(0, 1, 0, 0.5f);
+
+				if (invalidPlacementIcon != null) invalidPlacementIcon.SetActive(false);
 			}
 		}
 	}
@@ -73,6 +99,7 @@ public class InputManager : MonoBehaviour
 
 		isDragging = false;
 		radiusCircle.enabled = false;
+		if (invalidPlacementIcon != null) invalidPlacementIcon.SetActive(false); // Прячем крестик
 
 		CardData cardToPlay = draggingCard;
 		draggingCard = null;
@@ -84,6 +111,7 @@ public class InputManager : MonoBehaviour
 		{
 			bool isBuilding = hit.collider.CompareTag("Building");
 
+			// Жесткая проверка перед спавном (дублируем логику из Update)
 			if (cardToPlay.cardType == CardManager.CardType.Sniper && !isBuilding) return false;
 			if (cardToPlay.cardType != CardManager.CardType.Bomb && cardToPlay.cardType != CardManager.CardType.Sniper && isBuilding) return false;
 
@@ -112,7 +140,6 @@ public class InputManager : MonoBehaviour
 		}
 	}
 
-	// НОВАЯ ЛОГИКА: Берем радиус напрямую из CardData с учетом уровня игрока!
 	private float GetCardRadius(CardData card)
 	{
 		int currentLevel = 1;
@@ -122,11 +149,8 @@ public class InputManager : MonoBehaviour
 			if (progress != null) currentLevel = progress.currentLevel;
 		}
 
-		// Просим CardData саму посчитать радиус
 		float radius = card.GetCalculatedStat(StatType.Radius, currentLevel);
 
-		// Если радиус не назначен в Инспекторе (например, для Солдата мы еще не настроили),
-		// даем базовые значения, чтобы игра не сломалась.
 		if (radius <= 0)
 		{
 			switch (card.cardType)
@@ -141,14 +165,9 @@ public class InputManager : MonoBehaviour
 		return radius;
 	}
 
-	// НОВАЯ ЛОГИКА: Берем префаб прямо из карточки (card.cardPrefab)
 	private void ExecuteCardLogic(CardData card, Vector3 pos)
 	{
-		if (card.cardPrefab == null)
-		{
-			Debug.LogError($"Префаб не назначен в CardData для {card.cardName}!");
-			return;
-		}
+		if (card.cardPrefab == null) return;
 
 		GameObject spawnedObject = null;
 		switch (card.cardType)
@@ -167,11 +186,24 @@ public class InputManager : MonoBehaviour
 				break;
 			case CardManager.CardType.CombatHelicopter:
 				spawnedObject = Instantiate(card.cardPrefab);
-				// Предполагаю, что у него тоже есть Launch
 				spawnedObject.SendMessage("Launch", pos, SendMessageOptions.DontRequireReceiver);
 				break;
+			case CardManager.CardType.Soldier:
+				int currentLevel = 1;
+				if (PlayerProfile.Instance != null)
+				{
+					var progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == card.name);
+					if (progress != null) currentLevel = progress.currentLevel;
+				}
+				int count = (int)card.GetCalculatedStat(StatType.Count, currentLevel);
+				if (count <= 0) count = 1;
+				for (int i = 0; i < count; i++)
+				{
+					Vector3 offset = count > 1 ? new Vector3(Random.Range(-1.2f, 1.2f), 0, Random.Range(-1.2f, 1.2f)) : Vector3.zero;
+					Instantiate(card.cardPrefab, pos + offset, Quaternion.identity);
+				}
+				break;
 			default:
-				// Soldier, Bait, Sniper просто спавнятся в точке клика
 				Instantiate(card.cardPrefab, pos, Quaternion.identity);
 				break;
 		}

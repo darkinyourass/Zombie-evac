@@ -2,6 +2,8 @@ using UnityEngine;
 using TMPro;
 using System.Collections;
 
+// [ГДЕ ВИСИТ]: На префабе Вертолета.
+// [НАСТРОЙКИ]: Закинь префаб волны (Siren Ring) и маркер человека (Human Alert Prefab).
 public class HelicopterController : MonoBehaviour
 {
 	public enum HeliState { Landing, Loading, TakingOff }
@@ -19,11 +21,13 @@ public class HelicopterController : MonoBehaviour
 	public Color landingColor = new Color(0f, 1f, 0.2f, 0.5f);
 	public GameObject customLandingPrefab;
 
+	public GameObject sirenRingPrefab;
+	public GameObject humanAlertPrefab;
+
 	[Header("Ссылки")]
 	public TextMeshProUGUI loadText;
 	public GameObject hotWarning;
 
-	// СТАТЫ ИЗ CARD DATA
 	private int maxCapacity;
 	private float verticalSpeed;
 	private float attractRadius;
@@ -46,7 +50,6 @@ public class HelicopterController : MonoBehaviour
 		}
 		else
 		{
-			Debug.LogWarning("У Вертолета нет CardData! Берем базу.");
 			maxCapacity = 6; verticalSpeed = 15f; attractRadius = 12f;
 		}
 
@@ -92,7 +95,7 @@ public class HelicopterController : MonoBehaviour
 		}
 		else if (currentState == HeliState.Loading)
 		{
-			ApplyBuff();
+			// ApplyBuff(); // <-- ОТКЛЮЧЕНО ДЛЯ MVP: Неочевидная механика баффа
 			CheckDanger();
 		}
 		else if (currentState == HeliState.TakingOff)
@@ -112,11 +115,22 @@ public class HelicopterController : MonoBehaviour
 		if (landingMarker) Destroy(landingMarker);
 		if (loadText != null) loadText.gameObject.SetActive(true);
 
+		if (sirenRingPrefab != null)
+		{
+			GameObject ring = Instantiate(sirenRingPrefab, transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0));
+			ring.GetComponent<SirenEffect>()?.Setup(attractRadius, 1.2f);
+		}
+
 		foreach (var h in Human.AllHumans)
 		{
 			if (Vector3.Distance(transform.position, h.transform.position) < attractRadius)
 			{
 				h.SetRescueTarget(transform);
+
+				if (humanAlertPrefab != null)
+				{
+					Instantiate(humanAlertPrefab, h.transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0), h.transform);
+				}
 			}
 		}
 		StartCoroutine(LoadRoutine());
@@ -176,6 +190,7 @@ public class HelicopterController : MonoBehaviour
 		currentState = HeliState.TakingOff;
 	}
 
+	/* --- ОТКЛЮЧЕНО ДЛЯ MVP ---
 	private void ApplyBuff()
 	{
 		Collider[] hits = Physics.OverlapSphere(transform.position, buffRadius);
@@ -184,4 +199,5 @@ public class HelicopterController : MonoBehaviour
 			if (hit.CompareTag("Soldier")) hit.GetComponent<Soldier>()?.ApplyHeliBuff(2f);
 		}
 	}
+	*/
 }

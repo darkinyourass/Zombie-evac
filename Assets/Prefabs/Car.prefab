@@ -5165,6 +5165,7 @@ MonoBehaviour:
   dangerRadius: 1
   statusText: {fileID: 5667004255936022288}
   sirenRingPrefab: {fileID: 865694016111778266, guid: 672cace4d5c238942b4f07bd8d5bdd57, type: 3}
+  humanAlertPrefab: {fileID: 4475895485885616611, guid: 16e51574f7abee6408f6c11b6e587998, type: 3}
 --- !u!1 &8530414115137286572
 GameObject:
   m_ObjectHideFlags: 0

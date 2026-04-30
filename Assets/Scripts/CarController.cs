@@ -3,6 +3,8 @@ using UnityEngine.AI;
 using System.Collections;
 using TMPro;
 
+// [ГДЕ ВИСИТ]: На префабе Машины.
+// [НАСТРОЙКИ]: В инспекторе нужно будет назначить Human Alert Prefab (маркер под ногами людей).
 [RequireComponent(typeof(NavMeshAgent))]
 public class CarController : MonoBehaviour
 {
@@ -10,9 +12,9 @@ public class CarController : MonoBehaviour
 	public CarState currentState;
 
 	[Header("Связь с карточкой")]
-	public CardData myCardData; // Перетащи сюда CardData Машины
+	public CardData myCardData;
 
-	[Header("Технические настройки (Не меняются с уровнем)")]
+	[Header("Технические настройки")]
 	public float crushRadius = 2.5f;
 	public float boardingRadius = 1.8f;
 	public int boardPerTick = 1;
@@ -21,8 +23,9 @@ public class CarController : MonoBehaviour
 	[Header("UI и Визуал")]
 	public TMP_Text statusText;
 	public GameObject sirenRingPrefab;
+	[Tooltip("Эффект, который появляется под ногами людей, когда они услышали машину")]
+	public GameObject humanAlertPrefab; // <-- НОВОЕ ПОЛЕ
 
-	// --- ЭТИ СТАТЫ ТЕПЕРЬ БЕРУТСЯ ИЗ CARD DATA ---
 	private int maxCapacity;
 	private float loadTime;
 	private float sirenRadius;
@@ -51,11 +54,9 @@ public class CarController : MonoBehaviour
 		}
 		else
 		{
-			Debug.LogWarning("У Машины не назначен CardData! Используем базовые значения.");
 			maxCapacity = 5; loadTime = 15f; sirenRadius = 20f; boardingCooldown = 0.5f;
 		}
 
-		// Страховка от нулевых значений
 		if (loadTime <= 0) loadTime = 15f;
 		if (sirenRadius <= 0) sirenRadius = 20f;
 		if (boardingCooldown <= 0) boardingCooldown = 0.5f;
@@ -64,7 +65,7 @@ public class CarController : MonoBehaviour
 
 	public void Launch(Vector3 targetPos)
 	{
-		if (maxCapacity == 0) Start(); // Инициализируем, если Launch вызвался раньше Start
+		if (maxCapacity == 0) Start();
 
 		GameObject[] waypoints = GameObject.FindGameObjectsWithTag("CarWaypoint");
 		if (waypoints.Length < 2) { Destroy(gameObject); return; }
@@ -119,15 +120,28 @@ public class CarController : MonoBehaviour
 		agent.isStopped = true;
 		agent.velocity = Vector3.zero;
 
-		if (!sirenFired && sirenRingPrefab != null)
+		if (!sirenFired)
 		{
-			GameObject ring = Instantiate(sirenRingPrefab, transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0));
-			ring.GetComponent<SirenEffect>()?.Setup(sirenRadius, 1.2f);
+			if (sirenRingPrefab != null)
+			{
+				GameObject ring = Instantiate(sirenRingPrefab, transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0));
+				ring.GetComponent<SirenEffect>()?.Setup(sirenRadius, 1.2f);
+			}
 
 			Collider[] humansInRange = Physics.OverlapSphere(transform.position, sirenRadius);
 			foreach (var h in humansInRange)
 			{
-				if (h.CompareTag("Human")) h.GetComponent<NavMeshAgent>()?.SetDestination(transform.position);
+				if (h.CompareTag("Human"))
+				{
+					h.GetComponent<NavMeshAgent>()?.SetDestination(transform.position);
+
+					// --- НОВОЕ: Спавним маркер под человеком ---
+					if (humanAlertPrefab != null)
+					{
+						// Делаем маркер дочерним объектом человека, чтобы он бежал вместе с ним
+						Instantiate(humanAlertPrefab, h.transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0), h.transform);
+					}
+				}
 			}
 			sirenFired = true;
 		}

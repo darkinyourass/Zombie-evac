@@ -593,5 +593,7 @@ MonoBehaviour:
   landingRadius: 1
   landingColor: {r: 0, g: 1, b: 0.2, a: 0.5}
   customLandingPrefab: {fileID: 0}
+  sirenRingPrefab: {fileID: 865694016111778266, guid: 672cace4d5c238942b4f07bd8d5bdd57, type: 3}
+  humanAlertPrefab: {fileID: 4475895485885616611, guid: 16e51574f7abee6408f6c11b6e587998, type: 3}
   loadText: {fileID: 1443583669508821101}
   hotWarning: {fileID: 3365596197092276728}

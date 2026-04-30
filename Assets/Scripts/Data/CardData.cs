@@ -8,13 +8,14 @@ public enum CardRarity { Common, Rare, Epic, Legendary }
 public enum StatType
 {
 	None,
-	Capacity,       // Вместимость
-	Speed,          // Скорость
-	Damage,         // Урон
-	FireRate,       // Скорострельность
-	Radius,         // Радиус (взрыва, шума)
-	Duration,       // Длительность
-	Cooldown        // Перезарядка / кулдаун посадки
+	Capacity,
+	Speed,
+	Damage,
+	FireRate,
+	Radius,
+	Duration,
+	Cooldown,
+	Count           
 }
 
 [System.Serializable]

@@ -2,24 +2,47 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
+// [ГДЕ ВИСИТ]: На префабе Солдата.
+// [НАСТРОЙКИ]: Назначить только myCardData.
 public class Soldier : MonoBehaviour
 {
 	[Header("Связь с карточкой")]
 	public CardData myCardData;
 
-	// СТАТЫ ИЗ CARD DATA
 	private float fireRate;
 	private float attackRange;
 	private int damage;
 	private float lifespan;
 
 	private float currentFireRate;
-	private float buffTimer = 0f;
+	// private float buffTimer = 0f; // <-- ОТКЛЮЧЕНО
 	private bool isExtracting = false;
 
 	private Renderer[] allRenderers;
-	private Dictionary<Renderer, Color> originalColors = new Dictionary<Renderer, Color>();
+	// private Dictionary<Renderer, Color> originalColors = new Dictionary<Renderer, Color>(); // <-- ОТКЛЮЧЕНО
 	private LineRenderer tracerLine;
+
+	private void Awake()
+	{
+		allRenderers = GetComponentsInChildren<Renderer>();
+
+		/* --- ОТКЛЮЧЕНО ДЛЯ MVP: Логика кеширования цветов для баффа ---
+		foreach (var r in allRenderers)
+		{
+			if (r == null) continue;
+			if (r.material.HasProperty("_BaseColor")) originalColors[r] = r.material.GetColor("_BaseColor");
+			else if (r.material.HasProperty("_Color")) originalColors[r] = r.material.color;
+		}
+		*/
+
+		tracerLine = gameObject.AddComponent<LineRenderer>();
+		tracerLine.startWidth = 0.2f;
+		tracerLine.endWidth = 0.05f;
+		tracerLine.material = new Material(Shader.Find("Sprites/Default"));
+		tracerLine.startColor = Color.yellow;
+		tracerLine.endColor = new Color(1, 0.5f, 0);
+		tracerLine.enabled = false;
+	}
 
 	private void Start()
 	{
@@ -36,42 +59,21 @@ public class Soldier : MonoBehaviour
 		}
 		else
 		{
-			Debug.LogWarning("У Солдата нет CardData! Берем базу.");
 			fireRate = 1.5f; attackRange = 12f; damage = 20; lifespan = 8f;
 		}
 
 		currentFireRate = fireRate;
-		allRenderers = GetComponentsInChildren<Renderer>();
-
-		foreach (var r in allRenderers)
-		{
-			if (r == null) continue;
-			if (r.material.HasProperty("_BaseColor")) originalColors[r] = r.material.GetColor("_BaseColor");
-			else if (r.material.HasProperty("_Color")) originalColors[r] = r.material.color;
-		}
-
-		tracerLine = gameObject.AddComponent<LineRenderer>();
-		tracerLine.startWidth = 0.2f;
-		tracerLine.endWidth = 0.05f;
-		tracerLine.material = new Material(Shader.Find("Sprites/Default"));
-		tracerLine.startColor = Color.yellow;
-		tracerLine.endColor = new Color(1, 0.5f, 0);
-		tracerLine.enabled = false;
-
 		StartCoroutine(ShootRoutine());
 	}
 
 	private void Update()
 	{
-		if (isExtracting)
-		{
-			transform.Translate(Vector3.up * 20f * Time.deltaTime);
-			return;
-		}
+		if (isExtracting) return;
 
 		lifespan -= Time.deltaTime;
 		if (lifespan <= 0) StartCoroutine(ExtractRoutine());
 
+		/* --- ОТКЛЮЧЕНО ДЛЯ MVP ---
 		if (buffTimer > 0)
 		{
 			buffTimer -= Time.deltaTime;
@@ -81,14 +83,29 @@ public class Soldier : MonoBehaviour
 				RestoreOriginalColors();
 			}
 		}
+		*/
 	}
 
 	private IEnumerator ExtractRoutine()
 	{
 		isExtracting = true;
 		tracerLine.enabled = false;
-		ChangeColor(Color.white);
-		yield return new WaitForSeconds(1.5f);
+
+		var agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+		if (agent != null) agent.enabled = false;
+
+		var col = GetComponent<Collider>();
+		if (col != null) col.enabled = false;
+
+		float t = 0;
+		Vector3 startScale = transform.localScale;
+		while (t < 1f)
+		{
+			t += Time.deltaTime * 3f;
+			transform.localScale = Vector3.Lerp(startScale, Vector3.zero, t);
+			yield return null;
+		}
+
 		Destroy(gameObject);
 	}
 
@@ -136,15 +153,16 @@ public class Soldier : MonoBehaviour
 	private bool HasLineOfSight(Transform target)
 	{
 		Vector3 start = transform.position + Vector3.up * 1.5f;
-		Vector3 end = target.position + Vector3.up * 1.0f;
+		Vector3 dir = (target.position + Vector3.up * 1.0f) - start;
 
-		if (Physics.Linecast(start, end, out RaycastHit hit))
+		if (Physics.Raycast(start, dir.normalized, out RaycastHit hit, dir.magnitude))
 		{
 			if (hit.collider.CompareTag("Building")) return false;
 		}
 		return true;
 	}
 
+	/* --- ОТКЛЮЧЕНО ДЛЯ MVP: Методы перекраски ---
 	public void ApplyHeliBuff(float speedMultiplier)
 	{
 		currentFireRate = fireRate / speedMultiplier;
@@ -154,6 +172,7 @@ public class Soldier : MonoBehaviour
 
 	private void ChangeColor(Color targetColor)
 	{
+		if (allRenderers == null) return;
 		foreach (var r in allRenderers)
 		{
 			if (r == null) continue;
@@ -164,6 +183,7 @@ public class Soldier : MonoBehaviour
 
 	private void RestoreOriginalColors()
 	{
+		if (allRenderers == null) return;
 		foreach (var r in allRenderers)
 		{
 			if (r == null || !originalColors.ContainsKey(r)) continue;
@@ -171,4 +191,5 @@ public class Soldier : MonoBehaviour
 			else if (r.material.HasProperty("_Color")) r.material.color = originalColors[r];
 		}
 	}
+	*/
 }
