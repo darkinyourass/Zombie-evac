@@ -13,15 +13,18 @@ public class LevelData : ScriptableObject
 	public float initialSpawnDelay = 0.5f;
 	public float suddenDeathSpawnRate = 0.3f;
 
+	[Header("Условия победы")]
+	[Tooltip("Минимальное количество спасенных людей для победы")]
+	public int requiredRescuedHumans = 10; // <-- НОВОЕ ПОЛЕ
+
 	[Header("Настройки Камеры Уровня")]
-	public CameraType cameraType = CameraType.Perspective; // <-- Тот самый переключатель
+	public CameraType cameraType = CameraType.Perspective;
 	public Vector3 cameraPosition = new Vector3(0, 20, -15);
 	public Vector3 cameraRotation = new Vector3(60, 0, 0);
-	public float cameraFieldOfView = 60f; // Для Perspective
-	public float orthographicSize = 10f;  // Для Orthographic
+	public float cameraFieldOfView = 60f;
+	public float orthographicSize = 10f;
 
 	[Header("Награда за первое прохождение")]
-	public int currencyReward = 50; // Сколько валюты (софта) даем
+	public int currencyReward = 50;
 	public LootboxData levelRewardLootbox;
-
 }

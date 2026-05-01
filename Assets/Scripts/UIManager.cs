@@ -1,8 +1,10 @@
+using DG.Tweening;
+using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
-using System.Collections;
 
+// [ГДЕ ВИСИТ]: На пустом объекте Managers
 public class UIManager : MonoBehaviour
 {
 	public static UIManager Instance;
@@ -13,8 +15,18 @@ public class UIManager : MonoBehaviour
 	[SerializeField] private Image manaFillBar;
 	[SerializeField] private ResultPopupUI resultPopup;
 
-	// НОВОЕ ПОЛЕ: Сюда перетащи текст из интерфейса, который показывает "Спасенных: 0/30"
+	[Header("Счетчик спасенных")]
 	[SerializeField] private TextMeshProUGUI ingameRescuedText;
+	[SerializeField] private GameObject checkmarkIcon;
+	[SerializeField] private Color defaultColor = Color.white;
+	[SerializeField] private Color successColor = Color.green;
+
+	[Header("Эффект вылетающих цифр")]
+	[SerializeField] private GameObject flyingTextPrefab;
+	[SerializeField] private RectTransform counterTarget;
+
+	[Header("Окно Поражения")]
+	[SerializeField] private GameObject losePopup;
 
 	[Header("Ночной Эффект")]
 	public TextMeshProUGUI centerNightText;
@@ -63,12 +75,53 @@ public class UIManager : MonoBehaviour
 		if (seconds <= 0) timerText.text = "НОЧЬ!";
 	}
 
-	// НОВЫЙ МЕТОД ДЛЯ ОБНОВЛЕНИЯ СЧЕТЧИКА
-	public void UpdateRescuedCount(int rescued, int total)
+	public void UpdateRescuedCount(int rescued, int required, bool animate = true)
 	{
 		if (ingameRescuedText != null)
 		{
-			ingameRescuedText.text = $"{rescued} / {total}";
+			ingameRescuedText.text = $"{rescued} / {required}";
+
+			if (animate)
+			{
+				ingameRescuedText.transform.DOKill(true);
+				ingameRescuedText.transform.DOPunchScale(Vector3.one * 0.2f, 0.3f, 10, 1f);
+			}
+
+			if (rescued >= required)
+			{
+				ingameRescuedText.color = successColor;
+				if (checkmarkIcon != null) checkmarkIcon.SetActive(true);
+			}
+			else
+			{
+				ingameRescuedText.color = defaultColor;
+				if (checkmarkIcon != null) checkmarkIcon.SetActive(false);
+			}
+		}
+	}
+
+	public void SpawnFlyingText(Vector3 worldPosition, int amount)
+	{
+		if (flyingTextPrefab == null || counterTarget == null)
+		{
+			GameManager.Instance.OnFlyingTextReached(amount);
+			return;
+		}
+
+		Canvas uiCanvas = counterTarget.GetComponentInParent<Canvas>();
+		if (uiCanvas == null)
+		{
+			GameManager.Instance.OnFlyingTextReached(amount);
+			return;
+		}
+
+		GameObject ftObj = Instantiate(flyingTextPrefab, uiCanvas.transform);
+		FlyingText ft = ftObj.GetComponent<FlyingText>();
+
+		if (ft != null)
+		{
+			Vector2 screenPos = Camera.main.WorldToScreenPoint(worldPosition);
+			ft.Launch($"+{amount}", screenPos, counterTarget, amount);
 		}
 	}
 
@@ -100,8 +153,14 @@ public class UIManager : MonoBehaviour
 		centerNightText.gameObject.SetActive(false);
 	}
 
-	public void ShowResultPopup(int rescued, int total, CardData reward = null)
+	public void ShowLosePopup()
 	{
-		if (resultPopup != null) resultPopup.Show(rescued, total, reward);
+		if (losePopup != null) losePopup.SetActive(true);
+	}
+
+	public void ShowResultPopup(int rescued, int total, CardData reward = null, bool isPerfect = false)
+	{
+		// ФИКС: Теперь мы передаем isPerfect внутрь окна результата!
+		if (resultPopup != null) resultPopup.Show(rescued, total, reward, isPerfect);
 	}
 }

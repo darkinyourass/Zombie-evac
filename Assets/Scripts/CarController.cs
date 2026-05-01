@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 
 // [ГДЕ ВИСИТ]: На префабе Машины.
-// [НАСТРОЙКИ]: В инспекторе нужно будет назначить Human Alert Prefab (маркер под ногами людей).
+// [НАСТРОЙКИ]: Ничего нового перетаскивать не нужно, просто добавь стат Speed в карточку Машины.
 [RequireComponent(typeof(NavMeshAgent))]
 public class CarController : MonoBehaviour
 {
@@ -23,19 +24,22 @@ public class CarController : MonoBehaviour
 	[Header("UI и Визуал")]
 	public TMP_Text statusText;
 	public GameObject sirenRingPrefab;
-	[Tooltip("Эффект, который появляется под ногами людей, когда они услышали машину")]
-	public GameObject humanAlertPrefab; // <-- НОВОЕ ПОЛЕ
+	public GameObject humanAlertPrefab;
+	public float alertDuration = 2.0f;
 
 	private int maxCapacity;
 	private float loadTime;
 	private float sirenRadius;
 	private float boardingCooldown;
+	private float moveSpeed; // <-- НОВЫЙ ПАРАМЕТР
 
 	private NavMeshAgent agent;
 	private int currentLoad = 0;
 	private Transform exitWaypoint;
 	private bool isTooHot = false;
 	private bool sirenFired = false;
+
+	private List<GameObject> loadedHumans = new List<GameObject>();
 
 	private void Awake() => agent = GetComponent<NavMeshAgent>();
 
@@ -51,16 +55,17 @@ public class CarController : MonoBehaviour
 			loadTime = myCardData.GetCalculatedStat(StatType.Duration, currentLevel);
 			sirenRadius = myCardData.GetCalculatedStat(StatType.Radius, currentLevel);
 			boardingCooldown = myCardData.GetCalculatedStat(StatType.Cooldown, currentLevel);
-		}
-		else
-		{
-			maxCapacity = 5; loadTime = 15f; sirenRadius = 20f; boardingCooldown = 0.5f;
+			moveSpeed = myCardData.GetCalculatedStat(StatType.Speed, currentLevel); // <-- ЧИТАЕМ СКОРОСТЬ
 		}
 
+		// Дефолтные значения (Safety net)
 		if (loadTime <= 0) loadTime = 15f;
 		if (sirenRadius <= 0) sirenRadius = 20f;
 		if (boardingCooldown <= 0) boardingCooldown = 0.5f;
 		if (maxCapacity <= 0) maxCapacity = 5;
+		if (moveSpeed <= 0) moveSpeed = 3.5f;
+
+		agent.speed = moveSpeed; // Применяем скорость к машине
 	}
 
 	public void Launch(Vector3 targetPos)
@@ -107,9 +112,14 @@ public class CarController : MonoBehaviour
 	private void UpdateUI()
 	{
 		if (statusText == null) return;
-		if (isTooHot) { statusText.text = "TOO HOT!"; statusText.color = Color.red; }
-		else if (currentLoad >= maxCapacity) { statusText.text = "FULL!"; statusText.color = Color.green; }
-		else { statusText.text = $"{currentLoad} / {maxCapacity}"; statusText.color = Color.white; }
+
+		// Если никого нет - прячем текст. Если есть - показываем просто цифру.
+		if (currentLoad == 0) statusText.text = "";
+		else statusText.text = currentLoad.ToString();
+
+		// Красим в красный, если зомби рядом, иначе зеленый
+		if (isTooHot) statusText.color = Color.red;
+		else statusText.color = Color.green;
 	}
 
 	private IEnumerator CarRoutine()
@@ -128,18 +138,15 @@ public class CarController : MonoBehaviour
 				ring.GetComponent<SirenEffect>()?.Setup(sirenRadius, 1.2f);
 			}
 
-			Collider[] humansInRange = Physics.OverlapSphere(transform.position, sirenRadius);
-			foreach (var h in humansInRange)
+			foreach (var h in Human.AllHumans)
 			{
-				if (h.CompareTag("Human"))
+				if (Vector3.Distance(transform.position, h.transform.position) <= sirenRadius)
 				{
-					h.GetComponent<NavMeshAgent>()?.SetDestination(transform.position);
-
-					// --- НОВОЕ: Спавним маркер под человеком ---
+					h.SetRescueTarget(transform);
 					if (humanAlertPrefab != null)
 					{
-						// Делаем маркер дочерним объектом человека, чтобы он бежал вместе с ним
-						Instantiate(humanAlertPrefab, h.transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0), h.transform);
+						GameObject alert = Instantiate(humanAlertPrefab, h.transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0), h.transform);
+						Destroy(alert, alertDuration);
 					}
 				}
 			}
@@ -167,7 +174,11 @@ public class CarController : MonoBehaviour
 				{
 					if (h.CompareTag("Human"))
 					{
-						Destroy(h.gameObject);
+						var nav = h.GetComponent<NavMeshAgent>();
+						if (nav != null) nav.enabled = false;
+						h.transform.position = new Vector3(0, -1000, 0);
+						loadedHumans.Add(h.gameObject);
+
 						currentLoad++; boarded++;
 						if (boarded >= boardPerTick || currentLoad >= maxCapacity) break;
 					}
@@ -180,13 +191,23 @@ public class CarController : MonoBehaviour
 		UpdateUI();
 		if (isTooHot) yield return new WaitForSeconds(0.8f);
 
+		foreach (var h in Human.AllHumans)
+		{
+			if (h != null && h.rescueTarget == transform) h.CancelRescue();
+		}
+
 		currentState = CarState.Leaving;
 		agent.isStopped = false;
 		agent.SetDestination(exitWaypoint.position);
 
-		while (agent.pathPending || agent.remainingDistance > 2f) yield return null;
+		if (currentLoad > 0)
+		{
+			GameManager.Instance.AddRescuedHumans(currentLoad, transform.position);
+			foreach (var lh in loadedHumans) { if (lh != null) Destroy(lh); }
+			loadedHumans.Clear();
+		}
 
-		GameManager.Instance.AddRescuedHumans(currentLoad);
+		while (agent.pathPending || agent.remainingDistance > 2f) yield return null;
 		Destroy(gameObject);
 	}
 }

@@ -106,7 +106,7 @@ public class CombatHelicopter : MonoBehaviour
 			yield return null;
 		}
 
-		GameManager.Instance.AddRescuedHumans(currentLoad);
+		GameManager.Instance.AddRescuedHumans(currentLoad, transform.position);
 		Destroy(gameObject);
 	}
 

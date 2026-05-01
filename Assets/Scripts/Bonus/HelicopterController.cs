@@ -1,9 +1,11 @@
 using UnityEngine;
 using TMPro;
 using System.Collections;
+using System.Collections.Generic;
+using UnityEngine.AI;
 
 // [ГДЕ ВИСИТ]: На префабе Вертолета.
-// [НАСТРОЙКИ]: Закинь префаб волны (Siren Ring) и маркер человека (Human Alert Prefab).
+// [НАСТРОЙКИ]: В карточке Вертолета нужно добавить статы Duration (время ожидания) и Cooldown (скорость посадки).
 public class HelicopterController : MonoBehaviour
 {
 	public enum HeliState { Landing, Loading, TakingOff }
@@ -23,6 +25,7 @@ public class HelicopterController : MonoBehaviour
 
 	public GameObject sirenRingPrefab;
 	public GameObject humanAlertPrefab;
+	public float alertDuration = 2.0f;
 
 	[Header("Ссылки")]
 	public TextMeshProUGUI loadText;
@@ -32,9 +35,16 @@ public class HelicopterController : MonoBehaviour
 	private float verticalSpeed;
 	private float attractRadius;
 
+	// НОВЫЕ ПАРАМЕТРЫ ДЛЯ СИНХРОНИЗАЦИИ С МАШИНОЙ
+	private float loadTime;
+	private float boardingCooldown;
+
 	private int currentLoad = 0;
 	private Vector3 targetPos;
 	private GameObject landingMarker;
+	private bool isTooHot = false;
+
+	private List<GameObject> loadedHumans = new List<GameObject>();
 
 	private void Start()
 	{
@@ -47,15 +57,18 @@ public class HelicopterController : MonoBehaviour
 			maxCapacity = (int)myCardData.GetCalculatedStat(StatType.Capacity, currentLevel);
 			verticalSpeed = myCardData.GetCalculatedStat(StatType.Speed, currentLevel);
 			attractRadius = myCardData.GetCalculatedStat(StatType.Radius, currentLevel);
-		}
-		else
-		{
-			maxCapacity = 6; verticalSpeed = 15f; attractRadius = 12f;
+
+			// Читаем новые статы
+			loadTime = myCardData.GetCalculatedStat(StatType.Duration, currentLevel);
+			boardingCooldown = myCardData.GetCalculatedStat(StatType.Cooldown, currentLevel);
 		}
 
+		// Дефолтные значения (Safety net)
 		if (maxCapacity <= 0) maxCapacity = 6;
 		if (verticalSpeed <= 0) verticalSpeed = 15f;
 		if (attractRadius <= 0) attractRadius = 12f;
+		if (loadTime <= 0) loadTime = 15f;
+		if (boardingCooldown <= 0) boardingCooldown = 0.5f;
 	}
 
 	public void Launch(Vector3 pos)
@@ -67,7 +80,11 @@ public class HelicopterController : MonoBehaviour
 		currentState = HeliState.Landing;
 
 		if (hotWarning != null) hotWarning.SetActive(false);
-		if (loadText != null) loadText.gameObject.SetActive(false);
+		if (loadText != null)
+		{
+			loadText.gameObject.SetActive(true);
+			loadText.text = ""; 
+		}
 
 		if (customLandingPrefab != null)
 		{
@@ -93,17 +110,11 @@ public class HelicopterController : MonoBehaviour
 			transform.position = Vector3.MoveTowards(transform.position, new Vector3(targetPos.x, 1f, targetPos.z), verticalSpeed * Time.deltaTime);
 			if (transform.position.y <= 1.1f) StartLoading();
 		}
-		else if (currentState == HeliState.Loading)
-		{
-			// ApplyBuff(); // <-- ОТКЛЮЧЕНО ДЛЯ MVP: Неочевидная механика баффа
-			CheckDanger();
-		}
 		else if (currentState == HeliState.TakingOff)
 		{
 			transform.position += Vector3.up * verticalSpeed * Time.deltaTime;
 			if (transform.position.y > exitHeight)
 			{
-				GameManager.Instance.AddRescuedHumans(currentLoad);
 				Destroy(gameObject);
 			}
 		}
@@ -123,13 +134,17 @@ public class HelicopterController : MonoBehaviour
 
 		foreach (var h in Human.AllHumans)
 		{
-			if (Vector3.Distance(transform.position, h.transform.position) < attractRadius)
+			Vector2 heliPos2D = new Vector2(transform.position.x, transform.position.z);
+			Vector2 humanPos2D = new Vector2(h.transform.position.x, h.transform.position.z);
+
+			if (Vector2.Distance(heliPos2D, humanPos2D) < attractRadius)
 			{
 				h.SetRescueTarget(transform);
 
 				if (humanAlertPrefab != null)
 				{
-					Instantiate(humanAlertPrefab, h.transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0), h.transform);
+					GameObject alert = Instantiate(humanAlertPrefab, h.transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0), h.transform);
+					Destroy(alert, alertDuration);
 				}
 			}
 		}
@@ -138,49 +153,67 @@ public class HelicopterController : MonoBehaviour
 
 	private IEnumerator LoadRoutine()
 	{
-		while (currentLoad < maxCapacity)
+		float nextBoardTime = 0;
+		float waitTimer = 0;
+
+		// Логика 1 в 1 как у машины! Таймер против бесконечного ожидания.
+		while (currentLoad < maxCapacity && !isTooHot && waitTimer < loadTime)
 		{
-			Human h = null;
-			foreach (var hum in Human.AllHumans)
+			waitTimer += Time.deltaTime;
+
+			// Проверка на зомби
+			foreach (var z in Zombie.AllZombies)
 			{
-				if (Vector3.Distance(transform.position, hum.transform.position) < 2.5f) { h = hum; break; }
+				if (z != null && Vector3.Distance(transform.position, z.transform.position) < 3f)
+				{
+					isTooHot = true;
+					break;
+				}
 			}
 
-			if (h != null)
-			{
-				Destroy(h.gameObject);
-				currentLoad++;
-				if (loadText) loadText.text = $"{currentLoad}/{maxCapacity}";
-				yield return new WaitForSeconds(0.4f);
-			}
-			else
-			{
-				bool anyone = false;
-				foreach (var hum in Human.AllHumans) if (hum.rescueTarget == transform) anyone = true;
-				if (!anyone) break;
-				yield return null;
-			}
-		}
-		TakeOff();
-	}
+			if (isTooHot) break;
 
-	private void CheckDanger()
-	{
-		foreach (var z in Zombie.AllZombies)
-		{
-			if (z != null && Vector3.Distance(transform.position, z.transform.position) < 3f)
+			if (Time.time >= nextBoardTime)
 			{
-				TakeOff(true);
-				break;
+				int boarded = 0;
+				foreach (var hum in Human.AllHumans)
+				{
+					Vector2 heliPos2D = new Vector2(transform.position.x, transform.position.z);
+					Vector2 humanPos2D = new Vector2(hum.transform.position.x, hum.transform.position.z);
+
+					if (Vector2.Distance(heliPos2D, humanPos2D) < 2.5f)
+					{
+						var nav = hum.GetComponent<NavMeshAgent>();
+						if (nav != null) nav.enabled = false;
+						hum.transform.position = new Vector3(0, -1000, 0);
+						loadedHumans.Add(hum.gameObject);
+
+						currentLoad++;
+						boarded++;
+
+						// Вертолет берет по одному за тик (можно вынести в конфиг, если надо)
+						break;
+					}
+				}
+
+				if (boarded > 0)
+				{
+				
+					if (loadText) loadText.text = currentLoad.ToString();
+
+					nextBoardTime = Time.time + boardingCooldown;
+				}
 			}
+			yield return null;
 		}
+
+		TakeOff(isTooHot);
 	}
 
 	private void TakeOff(bool fromPanic = false)
 	{
 		if (fromPanic && hotWarning != null) hotWarning.SetActive(true);
 		if (loadText != null) loadText.gameObject.SetActive(false);
-		if (landingMarker) Destroy(landingMarker);
 
 		foreach (var h in Human.AllHumans)
 		{
@@ -188,16 +221,12 @@ public class HelicopterController : MonoBehaviour
 		}
 
 		currentState = HeliState.TakingOff;
-	}
 
-	/* --- ОТКЛЮЧЕНО ДЛЯ MVP ---
-	private void ApplyBuff()
-	{
-		Collider[] hits = Physics.OverlapSphere(transform.position, buffRadius);
-		foreach (var hit in hits)
+		if (currentLoad > 0)
 		{
-			if (hit.CompareTag("Soldier")) hit.GetComponent<Soldier>()?.ApplyHeliBuff(2f);
+			GameManager.Instance.AddRescuedHumans(currentLoad, transform.position);
+			foreach (var lh in loadedHumans) { if (lh != null) Destroy(lh); }
+			loadedHumans.Clear();
 		}
 	}
-	*/
 }

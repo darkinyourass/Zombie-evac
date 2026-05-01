@@ -146,9 +146,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hp: 1
-  moveSpeed: 2.2
+  moveSpeed: 1
   attackDamage: 1
-  attackRadius: 1.5
+  attackRadius: 0.5
   zombiePrefab: {fileID: 5563988904170882665}
 --- !u!1 &9028930594325800811
 GameObject:

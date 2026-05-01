@@ -3,20 +3,19 @@ using UnityEngine.AI;
 using System.Collections.Generic;
 
 // [ГДЕ ВИСИТ]: На префабе человека (Human).
-// [НАСТРОЙКИ]: Никакие новые ссылки в Инспекторе не нужны, все работает на базе старых.
+// [НАСТРОЙКИ]: Ничего настраивать не нужно.
 [RequireComponent(typeof(NavMeshAgent))]
 public class Human : MonoBehaviour
 {
 	public static List<Human> AllHumans = new List<Human>();
 
 	[Header("Настройки баланса")]
-	public float walkSpeed = 1.5f;    // Скорость спокойного шага
-	public float runSpeed = 4.0f;     // Скорость паники (бег от зомби или к машине)
-	public float panicRadius = 8f;    // На каком расстоянии замечает зомби
+	public float walkSpeed = 1.5f;
+	public float runSpeed = 4.0f;
+	public float panicRadius = 8f;
 
 	private NavMeshAgent agent;
 
-	// Скрываем эти переменные из Инспектора, так как они нужны только для кода
 	[HideInInspector] public bool isRescuing = false;
 	[HideInInspector] public Transform rescueTarget = null;
 
@@ -27,8 +26,6 @@ public class Human : MonoBehaviour
 	private void Start()
 	{
 		agent.speed = walkSpeed;
-
-		// На старте не даем им случайную точку, если у нас фаза планирования
 		if (GameManager.Instance != null && GameManager.Instance.State != GameManager.GameState.Planning)
 		{
 			SetRandomDest();
@@ -37,35 +34,36 @@ public class Human : MonoBehaviour
 
 	private void Update()
 	{
-		// --- ПУНКТ 1: Заморозка на этапе планирования ---
+		// Если агент спрятан в транспорте — скрипт спит
+		if (!agent.isActiveAndEnabled || !agent.isOnNavMesh) return;
+
+		// Заморозка на этапе планирования
 		if (GameManager.Instance != null && GameManager.Instance.State == GameManager.GameState.Planning)
 		{
-			// Останавливаем агента, если он почему-то решил пойти
-			if (agent.isOnNavMesh && !agent.isStopped) agent.isStopped = true;
-			return; // Прерываем Update, чтобы они не сканировали зомби и не дергались
+			if (!agent.isStopped) agent.isStopped = true;
+			return;
 		}
-		else
+		else if (agent.isStopped)
 		{
-			// Игра началась — "спускаем с поводка"
-			if (agent.isOnNavMesh && agent.isStopped)
-			{
-				agent.isStopped = false;
-				// Даем первую цель для прогулки, если они просто стояли
-				if (!agent.hasPath) SetRandomDest();
-			}
+			agent.isStopped = false;
 		}
 
-		// 1. Если приехала машина/вертолет - бежим к ним!
+		// --- ПРИОРИТЕТ 1: ЭВАКУАЦИЯ ---
 		if (isRescuing && rescueTarget != null)
 		{
 			agent.speed = runSpeed;
-			agent.SetDestination(rescueTarget.position);
+			Vector3 groundTarget = new Vector3(rescueTarget.position.x, transform.position.y, rescueTarget.position.z);
+
+			if (Vector3.Distance(agent.destination, groundTarget) > 0.5f)
+			{
+				agent.SetDestination(groundTarget);
+			}
 			return;
 		}
 
-		// 2. Логика побега от зомби
+		// --- ПРИОРИТЕТ 2: ПОБЕГ ОТ ЗОМБИ ---
 		Zombie nearest = null;
-		float minD = panicRadius; // Ищем зомби только внутри радиуса паники
+		float minD = panicRadius;
 
 		foreach (var z in Zombie.AllZombies)
 		{
@@ -80,15 +78,33 @@ public class Human : MonoBehaviour
 
 		if (nearest != null)
 		{
-			// Зомби близко! Включаем скорость бега и убегаем в противоположную сторону
 			agent.speed = runSpeed;
-			agent.SetDestination(transform.position + (transform.position - nearest.transform.position).normalized * 5f);
+			Vector3 runDir = (transform.position - nearest.transform.position).normalized;
+			Vector3 targetFlee = transform.position + runDir * 6f;
+
+			// Проверяем, не ведет ли путь в стену
+			if (NavMesh.SamplePosition(targetFlee, out NavMeshHit hit, 4f, NavMesh.AllAreas))
+			{
+				if (Vector3.Distance(agent.destination, hit.position) > 1f)
+				{
+					agent.SetDestination(hit.position);
+				}
+			}
+			else
+			{
+				// Сзади тупик — ломимся в случайную сторону
+				SetRandomDest();
+			}
+			return;
 		}
-		else
+
+		// --- ПРИОРИТЕТ 3: МИРНАЯ ЖИЗНЬ ---
+		agent.speed = walkSpeed;
+
+		// Гуляем. Если застряли или дошли до конца — выбираем новую точку
+		if (!agent.pathPending)
 		{
-			// Зомби нет, просто гуляем
-			agent.speed = walkSpeed;
-			if (!agent.pathPending && agent.remainingDistance < 0.5f)
+			if (!agent.hasPath || agent.remainingDistance < 0.5f || agent.pathStatus != NavMeshPathStatus.PathComplete)
 			{
 				SetRandomDest();
 			}
@@ -99,12 +115,25 @@ public class Human : MonoBehaviour
 	{
 		isRescuing = true;
 		rescueTarget = t;
+
+		if (agent.isActiveAndEnabled && agent.isOnNavMesh)
+		{
+			Vector3 groundTarget = new Vector3(rescueTarget.position.x, transform.position.y, rescueTarget.position.z);
+			agent.SetDestination(groundTarget);
+		}
 	}
 
+	// Вызывается транспортом, когда он улетает/уезжает
 	public void CancelRescue()
 	{
 		isRescuing = false;
 		rescueTarget = null;
+
+		// Сбрасываем путь. В следующем кадре Update сам поймет, что делать: гулять или бежать от зомби
+		if (agent.isActiveAndEnabled && agent.isOnNavMesh)
+		{
+			agent.ResetPath();
+		}
 	}
 
 	private void SetRandomDest()

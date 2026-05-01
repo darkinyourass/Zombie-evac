@@ -1,47 +1,69 @@
-using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
-using UnityEngine.SceneManagement;
+using DG.Tweening;
 using System.Collections;
+using TMPro;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
+// [НАСТРОЙКИ]: В Инспекторе появится поле "Perfect Badge". Закинь туда плашку ИДЕАЛЬНО (Картинку или Текст).
 public class ResultPopupUI : MonoBehaviour
 {
 	[Header("Тексты результатов")]
 	[SerializeField] private TextMeshProUGUI resultText;
+
+	[Header("Идеальное прохождение")]
+	[Tooltip("Перетащи сюда UI-объект плашки ИДЕАЛЬНО! (Сделай его выключенным по умолчанию)")]
+	public GameObject perfectBadge; // <-- НОВОЕ ПОЛЕ
 
 	[Header("Кнопки")]
 	[SerializeField] private Transform btnX2;
 	[SerializeField] private GameObject btnNoThanks;
 
 	[Header("Настройки анимаций")]
-	[SerializeField] private float noThanksDelay = 1.5f; // Задержка появления "Нет, спасибо"
-	[SerializeField] private float pulseSpeed = 5f;      // Скорость пульсации х2
-	[SerializeField] private float pulseMagnitude = 0.05f; // Сила пульсации х2 (0.05 = 5%)
+	[SerializeField] private float noThanksDelay = 1.5f;
+	[SerializeField] private float pulseSpeed = 5f;
+	[SerializeField] private float pulseMagnitude = 0.05f;
 
 	[Header("Окно Лутбокса (Награда)")]
 	[SerializeField] private GameObject rewardPanel;
 	[SerializeField] private Image rewardCardIcon;
 	[SerializeField] private TextMeshProUGUI rewardCardName;
 
-	private Vector3 initialX2Scale; // Запоминаем изначальный размер кнопки х2
+	private Vector3 initialX2Scale;
 
 	private void Awake()
 	{
-		// Запоминаем размер кнопки, который ты настроил в Инспекторе
 		if (btnX2 != null)
 		{
 			initialX2Scale = btnX2.localScale;
 		}
 	}
 
-	public void Show(int rescued, int total, CardData rewardCard)
+	// <-- ИЗМЕНЕНИЕ: добавили параметр bool isPerfect = false
+	public void Show(int rescued, int total, CardData rewardCard, bool isPerfect = false)
 	{
 		gameObject.SetActive(true);
 		resultText.text = $"СПАСЕНО:\n{rescued} / {total}";
 
+		// ФИКС 1: Сначала всегда выключаем плашку и сбрасываем её размер
+		if (perfectBadge != null)
+		{
+			perfectBadge.SetActive(false);
+			perfectBadge.transform.localScale = Vector3.zero;
+		}
+
 		btnNoThanks.SetActive(false);
-		// Используем новую переменную для задержки
 		Invoke(nameof(ShowNoThanksButton), noThanksDelay);
+
+		// --- ЛОГИКА ИДЕАЛЬНОГО ПРОХОЖДЕНИЯ ---
+		if (isPerfect && perfectBadge != null)
+		{
+			perfectBadge.SetActive(true);
+			// Анимируем появление: вылетает с отскоком через 0.5 сек после открытия окна
+			perfectBadge.transform.DOScale(Vector3.one, 0.5f)
+				.SetEase(Ease.OutBack)
+				.SetDelay(0.3f);
+		}
 
 		// --- ЛОГИКА ЛУТБОКСА ---
 		if (rewardCard != null && rewardPanel != null)
@@ -102,7 +124,6 @@ public class ResultPopupUI : MonoBehaviour
 	{
 		if (btnX2 != null)
 		{
-			// Пульсируем относительно ИЗНАЧАЛЬНОГО размера
 			float multiplier = 1f + Mathf.Sin(Time.time * pulseSpeed) * pulseMagnitude;
 			btnX2.localScale = initialX2Scale * multiplier;
 		}
