@@ -145,10 +145,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa89ab6089246474b8d0bc52bf6f7b20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  hp: 30
-  moveSpeed: 1.3
+  hp: 1
+  moveSpeed: 2.2
   attackDamage: 1
-  attackRadius: 0.5
+  attackRadius: 1.5
   zombiePrefab: {fileID: 5563988904170882665}
 --- !u!1 &9028930594325800811
 GameObject:

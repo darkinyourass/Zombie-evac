@@ -144,8 +144,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96b2387210193b34e930ff047d8dd53f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  walkSpeed: 1
-  runSpeed: 1.2
-  panicRadius: 3
+  walkSpeed: 1.2
+  runSpeed: 3.2
+  panicRadius: 6
   isRescuing: 0
   rescueTarget: {fileID: 0}

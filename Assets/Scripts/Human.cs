@@ -2,6 +2,8 @@ using UnityEngine;
 using UnityEngine.AI;
 using System.Collections.Generic;
 
+// [ГДЕ ВИСИТ]: На префабе человека (Human).
+// [НАСТРОЙКИ]: Никакие новые ссылки в Инспекторе не нужны, все работает на базе старых.
 [RequireComponent(typeof(NavMeshAgent))]
 public class Human : MonoBehaviour
 {
@@ -25,11 +27,34 @@ public class Human : MonoBehaviour
 	private void Start()
 	{
 		agent.speed = walkSpeed;
-		SetRandomDest();
+
+		// На старте не даем им случайную точку, если у нас фаза планирования
+		if (GameManager.Instance != null && GameManager.Instance.State != GameManager.GameState.Planning)
+		{
+			SetRandomDest();
+		}
 	}
 
 	private void Update()
 	{
+		// --- ПУНКТ 1: Заморозка на этапе планирования ---
+		if (GameManager.Instance != null && GameManager.Instance.State == GameManager.GameState.Planning)
+		{
+			// Останавливаем агента, если он почему-то решил пойти
+			if (agent.isOnNavMesh && !agent.isStopped) agent.isStopped = true;
+			return; // Прерываем Update, чтобы они не сканировали зомби и не дергались
+		}
+		else
+		{
+			// Игра началась — "спускаем с поводка"
+			if (agent.isOnNavMesh && agent.isStopped)
+			{
+				agent.isStopped = false;
+				// Даем первую цель для прогулки, если они просто стояли
+				if (!agent.hasPath) SetRandomDest();
+			}
+		}
+
 		// 1. Если приехала машина/вертолет - бежим к ним!
 		if (isRescuing && rescueTarget != null)
 		{

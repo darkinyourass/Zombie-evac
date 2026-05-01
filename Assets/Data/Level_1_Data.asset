@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: Level_1_Data
   m_EditorClassIdentifier: 
   levelPrefab: {fileID: 4058927015439930953, guid: 6f2cdca8843941f448c476e4431a5f3a, type: 3}
-  humanCount: 50
-  levelTimer: 15
-  initialZombies: 50
-  initialSpawnDelay: 0.5
-  suddenDeathSpawnRate: 0.2
+  humanCount: 15
+  levelTimer: 45
+  initialZombies: 2
+  initialSpawnDelay: 5
+  suddenDeathSpawnRate: 2.5
   cameraType: 0
   cameraPosition: {x: -2.78, y: 27.4, z: -1.7}
   cameraRotation: {x: 90, y: 0, z: 0}

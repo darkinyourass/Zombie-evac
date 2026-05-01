@@ -35,16 +35,16 @@ MonoBehaviour:
   stats:
   - statType: 1
     statName: "\u0412\u043C\u0435\u0441\u0442\u0438\u043C\u043E\u0441\u0442\u044C"
-    baseValue: 8
+    baseValue: 5
     valuePerLevel: 2
     unitSuffix: " \u0447\u0435\u043B."
   - statType: 2
     statName: "\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u043F\u043E\u043B\u0435\u0442\u0430"
-    baseValue: 15
-    valuePerLevel: 2
+    baseValue: 7
+    valuePerLevel: 1
     unitSuffix: " \u043C\\c."
   - statType: 5
     statName: "\u0420\u0430\u0434\u0438\u0443\u0441 \u043F\u043E\u0441\u0430\u0434\u043A\u0438"
-    baseValue: 3
+    baseValue: 8
     valuePerLevel: 0.5
     unitSuffix: " \u043C."
