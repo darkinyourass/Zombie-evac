@@ -12,16 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76a19b13f68c89648a0a4c1fba3f8a6f, type: 3}
   m_Name: Level_2_Data
   m_EditorClassIdentifier: 
-  levelPrefab: {fileID: 4058927015439930953, guid: 01998bf4634b49443ba409faffd0c1a8, type: 3}
-  humanCount: 30
+  levelPrefab: {fileID: 4058927015439930953, guid: 6f2cdca8843941f448c476e4431a5f3a, type: 3}
+  humanCount: 100
   levelTimer: 30
   initialZombies: 150
   initialSpawnDelay: 0.5
   suddenDeathSpawnRate: 0.2
-  cameraPosition: {x: 0, y: 20, z: -15}
-  cameraRotation: {x: 60, y: 0, z: 0}
-  cameraFieldOfView: 60
+  requiredRescuedHumans: 10
+  cameraType: 0
+  cameraPosition: {x: -2.78, y: 40.6, z: 2.24}
+  cameraRotation: {x: 90, y: 0, z: 0}
+  cameraFieldOfView: 62
   orthographicSize: 10
   currencyReward: 100
-  hasCardReward: 1
-  cardReward: 6
+  levelRewardLootbox: {fileID: 0}
