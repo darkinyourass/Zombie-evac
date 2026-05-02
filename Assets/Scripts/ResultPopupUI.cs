@@ -13,7 +13,7 @@ public class ResultPopupUI : MonoBehaviour
 
 	[Header("Идеальное прохождение")]
 	[Tooltip("Перетащи сюда UI-объект плашки ИДЕАЛЬНО! (Сделай его выключенным по умолчанию)")]
-	public GameObject perfectBadge; // <-- НОВОЕ ПОЛЕ
+	public GameObject perfectBadge;
 
 	[Header("Кнопки")]
 	[SerializeField] private Transform btnX2;
@@ -39,13 +39,11 @@ public class ResultPopupUI : MonoBehaviour
 		}
 	}
 
-	// <-- ИЗМЕНЕНИЕ: добавили параметр bool isPerfect = false
 	public void Show(int rescued, int total, CardData rewardCard, bool isPerfect = false)
 	{
 		gameObject.SetActive(true);
 		resultText.text = $"СПАСЕНО:\n{rescued} / {total}";
 
-		// ФИКС 1: Сначала всегда выключаем плашку и сбрасываем её размер
 		if (perfectBadge != null)
 		{
 			perfectBadge.SetActive(false);
@@ -55,17 +53,14 @@ public class ResultPopupUI : MonoBehaviour
 		btnNoThanks.SetActive(false);
 		Invoke(nameof(ShowNoThanksButton), noThanksDelay);
 
-		// --- ЛОГИКА ИДЕАЛЬНОГО ПРОХОЖДЕНИЯ ---
 		if (isPerfect && perfectBadge != null)
 		{
 			perfectBadge.SetActive(true);
-			// Анимируем появление: вылетает с отскоком через 0.5 сек после открытия окна
 			perfectBadge.transform.DOScale(Vector3.one, 0.5f)
 				.SetEase(Ease.OutBack)
 				.SetDelay(0.3f);
 		}
 
-		// --- ЛОГИКА ЛУТБОКСА ---
 		if (rewardCard != null && rewardPanel != null)
 		{
 			rewardPanel.SetActive(true);
@@ -131,9 +126,12 @@ public class ResultPopupUI : MonoBehaviour
 
 	public void FinishLevelAndGoToMenu()
 	{
-		int currentLevel = PlayerPrefs.GetInt("CurrentLevelIndex", 0);
-		PlayerPrefs.SetInt("CurrentLevelIndex", currentLevel + 1);
-		PlayerPrefs.Save();
+		// --- ВОТ ОН ФИКС ---
+		// Обращаемся к нашему профилю. Он сам повысит уровень и включит анимацию на карте.
+		if (PlayerProfile.Instance != null)
+		{
+			PlayerProfile.Instance.CompleteCurrentLevel();
+		}
 
 		SceneManager.LoadScene("MainMenu");
 	}

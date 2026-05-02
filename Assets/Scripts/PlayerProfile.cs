@@ -2,6 +2,8 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
+// [ГДЕ ВИСИТ]: На объекте PlayerProfile (Синглтон)
+// [ЧТО СДЕЛАТЬ В ИНСПЕКТОРЕ]: Раскрой массив All Regions и закинь туда свои RegionConfig по порядку (Регион 1, Регион 2).
 public class PlayerProfile : MonoBehaviour
 {
 	public static PlayerProfile Instance;
@@ -9,12 +11,18 @@ public class PlayerProfile : MonoBehaviour
 	[Header("Данные игрока")]
 	public int totalCurrency = 0;
 
+	[Header("Прогресс карты (Saga)")]
+	public int currentRegionIndex = 0;
+	public int currentLevelIndex = 0;
+	public bool hasPendingMapAnimation = false;
+	public bool hasPendingRegionAnimation = false; // <-- Флаг для смены штата
+
+	[Header("База Регионов")]
+	public List<RegionConfig> allRegions = new List<RegionConfig>();
+
 	[Header("Коллекция и Колода")]
 	public List<CardData> allAvailableCards = new List<CardData>();
-
-	[Tooltip("Перетащи сюда карты, которые игрок получит при первом запуске игры")]
-	public List<CardData> starterCards = new List<CardData>(); // <-- НОВОЕ ПОЛЕ
-
+	public List<CardData> starterCards = new List<CardData>();
 	public List<CardProgress> ownedCardsProgress = new List<CardProgress>();
 	public CardData[] currentDeck = new CardData[5];
 
@@ -26,109 +34,111 @@ public class PlayerProfile : MonoBehaviour
 			DontDestroyOnLoad(gameObject);
 			LoadProfile();
 		}
-		else
-		{
-			Destroy(gameObject);
-		}
+		else Destroy(gameObject);
 	}
 
 	public void LoadProfile()
 	{
 		totalCurrency = PlayerPrefs.GetInt("TotalCurrency", 0);
+		currentRegionIndex = PlayerPrefs.GetInt("CurrentRegion", 0);
+		currentLevelIndex = PlayerPrefs.GetInt("CurrentLevel", 0);
+		hasPendingMapAnimation = PlayerPrefs.GetInt("PendingMapAnim", 0) == 1;
+		hasPendingRegionAnimation = PlayerPrefs.GetInt("PendingRegionAnim", 0) == 1;
 
-		// 1. Загружаем прогресс карт
 		if (PlayerPrefs.HasKey("CardsProgress"))
 		{
 			string json = PlayerPrefs.GetString("CardsProgress");
 			var wrapper = JsonUtility.FromJson<SerializationWrapper<CardProgress>>(json);
-			if (wrapper != null && wrapper.target != null)
-			{
-				ownedCardsProgress = wrapper.target;
-			}
+			if (wrapper != null && wrapper.target != null) ownedCardsProgress = wrapper.target;
 		}
 
-		// 2. Загружаем колоду
 		string deckStr = PlayerPrefs.GetString("CurrentDeck", "");
 		if (!string.IsNullOrEmpty(deckStr))
 		{
 			string[] deckIds = deckStr.Split(',');
 			for (int i = 0; i < 5; i++)
 			{
-				if (i < deckIds.Length && deckIds[i] != "None")
-				{
-					currentDeck[i] = allAvailableCards.Find(c => c.name == deckIds[i]);
-				}
-				else
-				{
-					currentDeck[i] = null;
-				}
+				currentDeck[i] = (i < deckIds.Length && deckIds[i] != "None") ? allAvailableCards.Find(c => c.name == deckIds[i]) : null;
 			}
 		}
-		else
-		{
-			GiveStarterCards();
-		}
+		else GiveStarterCards();
 	}
 
 	public void SaveProfile()
 	{
 		PlayerPrefs.SetInt("TotalCurrency", totalCurrency);
+		PlayerPrefs.SetInt("CurrentRegion", currentRegionIndex);
+		PlayerPrefs.SetInt("CurrentLevel", currentLevelIndex);
+		PlayerPrefs.SetInt("PendingMapAnim", hasPendingMapAnimation ? 1 : 0);
+		PlayerPrefs.SetInt("PendingRegionAnim", hasPendingRegionAnimation ? 1 : 0);
 
 		string progressJson = JsonUtility.ToJson(new SerializationWrapper<CardProgress>(ownedCardsProgress));
 		PlayerPrefs.SetString("CardsProgress", progressJson);
 
 		string[] deckIds = new string[5];
-		for (int i = 0; i < 5; i++)
-		{
-			deckIds[i] = currentDeck[i] != null ? currentDeck[i].name : "None";
-		}
+		for (int i = 0; i < 5; i++) deckIds[i] = currentDeck[i] != null ? currentDeck[i].name : "None";
 		PlayerPrefs.SetString("CurrentDeck", string.Join(",", deckIds));
-
 		PlayerPrefs.Save();
 	}
 
-	public void AddCardReward(CardData newCard)
+	// --- ЛОГИКА ПЕРЕХОДА УРОВНЕЙ И РЕГИОНОВ ---
+	public void CompleteCurrentLevel()
 	{
-		if (newCard == null) return;
+		if (currentRegionIndex >= allRegions.Count) return; // Защита от краша, если игра пройдена
 
-		CardProgress progress = ownedCardsProgress.Find(p => p.cardId == newCard.name);
+		currentLevelIndex++;
+		int levelsInCurrentRegion = allRegions[currentRegionIndex].levels.Count;
 
-		if (progress == null)
+		// Если прошли 5-й уровень
+		if (currentLevelIndex >= levelsInCurrentRegion)
 		{
-			progress = new CardProgress(newCard.name);
-			ownedCardsProgress.Add(progress);
-			Debug.Log("Открыта новая карта: " + newCard.cardName);
+			currentRegionIndex++;
+			currentLevelIndex = 0; // Сбрасываем уровень на 0 для нового региона
 
-			for (int i = 0; i < 5; i++)
+			if (currentRegionIndex < allRegions.Count)
 			{
-				if (currentDeck[i] == null)
-				{
-					currentDeck[i] = newCard;
-					Debug.Log("Карта добавлена в слот " + i);
-					break;
-				}
+				hasPendingRegionAnimation = true; // Запускаем анимацию нового штата
+				hasPendingMapAnimation = false;
+			}
+			else
+			{
+				// Игра пройдена
+				currentRegionIndex = allRegions.Count - 1;
+				currentLevelIndex = levelsInCurrentRegion;
+				hasPendingMapAnimation = true;
 			}
 		}
 		else
 		{
-			progress.collectedShards++;
-			Debug.Log($"Получен осколок для {newCard.cardName}! Всего: {progress.collectedShards}");
+			hasPendingMapAnimation = true;
 		}
 
 		SaveProfile();
 	}
 
-	// ТЕПЕРЬ МЫ БЕРЕМ КАРТЫ ИЗ НАСТРОЕК ИНСПЕКТОРА
-	private void GiveStarterCards()
+	public void AddCardReward(CardData newCard)
 	{
-		foreach (CardData card in starterCards)
+		if (newCard == null) return;
+		CardProgress progress = ownedCardsProgress.Find(p => p.cardId == newCard.name);
+		if (progress == null)
 		{
-			if (card != null) AddCardReward(card);
+			progress = new CardProgress(newCard.name);
+			ownedCardsProgress.Add(progress);
+			for (int i = 0; i < 5; i++)
+			{
+				if (currentDeck[i] == null) { currentDeck[i] = newCard; break; }
+			}
 		}
-		SaveProfile(); // Жестко сохраняем после выдачи
+		else progress.collectedShards++;
+		SaveProfile();
 	}
 
-	// МЕТОД ДЛЯ ОЧИСТКИ СОХРАНЕНИЙ (чтобы ты мог легко тестить игру с нуля)
+	private void GiveStarterCards()
+	{
+		foreach (CardData card in starterCards) if (card != null) AddCardReward(card);
+		SaveProfile();
+	}
+
 	[ContextMenu("Сбросить весь прогресс (Очистить сохранения)")]
 	public void ResetProfile()
 	{
@@ -136,10 +146,12 @@ public class PlayerProfile : MonoBehaviour
 		ownedCardsProgress.Clear();
 		for (int i = 0; i < 5; i++) currentDeck[i] = null;
 		totalCurrency = 0;
-		Debug.LogWarning("ПРОГРЕСС СБРОШЕН! Перезапустите игру.");
+		currentRegionIndex = 0;
+		currentLevelIndex = 0;
+		hasPendingMapAnimation = false;
+		hasPendingRegionAnimation = false;
 	}
 }
-
 [System.Serializable]
 public class SerializationWrapper<T>
 {

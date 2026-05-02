@@ -4,6 +4,8 @@ using UnityEngine.AI;
 using System.Collections;
 using System.Collections.Generic;
 
+// [ГДЕ ВИСИТ]: В боевой сцене на объекте Managers. 
+// Поле "allLevels" удалено, так как уровни теперь берутся из профиля игрока!
 public class LevelManager : MonoBehaviour
 {
 	public static LevelManager Instance;
@@ -25,11 +27,9 @@ public class LevelManager : MonoBehaviour
 	private Color dayColor;
 	private float dayIntensity;
 
-	public List<LevelData> allLevels = new List<LevelData>();
 	private int currentLevelIndex = 0;
 	private List<Transform> daySpawnPoints = new List<Transform>();
 	private List<Transform> nightSpawnPoints = new List<Transform>();
-
 	private List<GameObject> activeIndicators = new List<GameObject>();
 
 	public LevelData currentData;
@@ -45,30 +45,31 @@ public class LevelManager : MonoBehaviour
 			dayIntensity = sunLight.intensity;
 		}
 
-		currentLevelIndex = PlayerPrefs.GetInt("CurrentLevelIndex", 0);
-		if (currentLevelIndex >= allLevels.Count) currentLevelIndex = 0;
-		if (allLevels.Count > 0) LoadLevel(allLevels[currentLevelIndex]);
+		// --- БЕРЕМ АКТУАЛЬНЫЙ РЕГИОН ---
+		int regionIdx = PlayerProfile.Instance.currentRegionIndex;
+		regionIdx = Mathf.Clamp(regionIdx, 0, PlayerProfile.Instance.allRegions.Count - 1);
+		RegionConfig currentRegion = PlayerProfile.Instance.allRegions[regionIdx];
+
+		currentLevelIndex = PlayerPrefs.GetInt("SelectedLevelToPlay", 0);
+
+		// Защита, если почему-то индекс больше чем есть в конфиге
+		if (currentLevelIndex >= currentRegion.levels.Count) currentLevelIndex = 0;
+
+		if (currentRegion.levels.Count > 0)
+		{
+			LoadLevel(currentRegion.levels[currentLevelIndex]);
+		}
 	}
 
 	public void LoadLevel(LevelData data)
 	{
 		ClearIndicators();
-
 		currentData = data;
+
 		if (currentLevelEnvironment != null) Destroy(currentLevelEnvironment);
 		currentLevelEnvironment = Instantiate(data.levelPrefab, Vector3.zero, Quaternion.identity);
 
-		// --- ВОТ ОН ШАГ 3 ---
-		// Старый хардкод удален. Теперь мы просто передаем Data в наш новый CameraController
-		if (CameraController.Instance != null)
-		{
-			CameraController.Instance.SetupCamera(data);
-		}
-		else
-		{
-			Debug.LogWarning("CameraController не найден! Убедись, что скрипт висит на Main Camera.");
-		}
-		// ---------------------
+		if (CameraController.Instance != null) CameraController.Instance.SetupCamera(data);
 
 		if (navSurface != null) navSurface.BuildNavMesh();
 
@@ -80,8 +81,8 @@ public class LevelManager : MonoBehaviour
 		if (nightSpawnPoints.Count == 0) nightSpawnPoints.AddRange(daySpawnPoints);
 
 		SpawnPlanningIndicators();
-
 		SpawnHumans(data.humanCount);
+
 		GameManager.Instance.SetTotalHumans(GameObject.FindGameObjectsWithTag("Human").Length);
 		GameManager.Instance.SetupTimer(data.levelTimer);
 	}
@@ -89,7 +90,6 @@ public class LevelManager : MonoBehaviour
 	private void SpawnPlanningIndicators()
 	{
 		if (indicatorPrefab == null) return;
-
 		foreach (Transform sp in daySpawnPoints)
 		{
 			Vector3 pos = sp.position + Vector3.up * indicatorHeight;
@@ -100,10 +100,7 @@ public class LevelManager : MonoBehaviour
 
 	private void ClearIndicators()
 	{
-		foreach (GameObject ind in activeIndicators)
-		{
-			if (ind != null) Destroy(ind);
-		}
+		foreach (GameObject ind in activeIndicators) if (ind != null) Destroy(ind);
 		activeIndicators.Clear();
 	}
 
@@ -143,11 +140,9 @@ public class LevelManager : MonoBehaviour
 	private IEnumerator NightTransitionRoutine()
 	{
 		if (sunLight == null) yield break;
-
 		float transitionTime = 2f;
 		float t = 0;
 		float startAmbient = RenderSettings.ambientIntensity;
-
 		while (t < 1)
 		{
 			t += Time.deltaTime / transitionTime;
