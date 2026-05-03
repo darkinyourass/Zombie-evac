@@ -1,25 +1,23 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 using Unity.AI.Navigation;
 using UnityEngine.AI;
 using System.Collections;
 using System.Collections.Generic;
 
-// [√ƒ≈ ¬»—»“]: ¬ ·ÓÂ‚ÓÈ ÒˆÂÌÂ Ì‡ Ó·˙ÂÍÚÂ Managers. 
-// œÓÎÂ "allLevels" Û‰‡ÎÂÌÓ, Ú‡Í Í‡Í ÛÓ‚ÌË ÚÂÔÂ¸ ·ÂÛÚÒˇ ËÁ ÔÓÙËÎˇ Ë„ÓÍ‡!
 public class LevelManager : MonoBehaviour
 {
 	public static LevelManager Instance;
 
-	[Header("—Ò˚ÎÍË Ì‡ ÏË")]
+	[Header("–°—Å—ã–ª–∫–∏ –Ω–∞ –º–∏—Ä")]
 	[SerializeField] private NavMeshSurface navSurface;
 	[SerializeField] private GameObject humanPrefab;
 	[SerializeField] private GameObject zombiePrefab;
 
-	[Header("¬ËÁÛ‡ÎËÁ‡ˆËˇ œÎ‡ÌËÓ‚‡ÌËˇ")]
+	[Header("–í–∏–∑—É–∞–ª–∏–∑–∞—Ü–∏—è –ü–ª–∞–Ω–∏—Ä–æ–≤–∞–Ω–∏—è")]
 	[SerializeField] private GameObject indicatorPrefab;
 	[SerializeField] private float indicatorHeight = 1.5f;
 
-	[Header("ŒÒ‚Â˘ÂÌËÂ")]
+	[Header("–û—Å–≤–µ—â–µ–Ω–∏–µ")]
 	public Light sunLight;
 	public Color nightColor = new Color(0.1f, 0.1f, 0.3f);
 	public float nightIntensity = 0.2f;
@@ -45,15 +43,14 @@ public class LevelManager : MonoBehaviour
 			dayIntensity = sunLight.intensity;
 		}
 
-		// --- ¡≈–≈Ã ¿ “”¿À‹Õ€… –≈√»ŒÕ ---
 		int regionIdx = PlayerProfile.Instance.currentRegionIndex;
 		regionIdx = Mathf.Clamp(regionIdx, 0, PlayerProfile.Instance.allRegions.Count - 1);
 		RegionConfig currentRegion = PlayerProfile.Instance.allRegions[regionIdx];
 
 		currentLevelIndex = PlayerPrefs.GetInt("SelectedLevelToPlay", 0);
 
-		// «‡˘ËÚ‡, ÂÒÎË ÔÓ˜ÂÏÛ-ÚÓ ËÌ‰ÂÍÒ ·ÓÎ¸¯Â ˜ÂÏ ÂÒÚ¸ ‚ ÍÓÌÙË„Â
-		if (currentLevelIndex >= currentRegion.levels.Count) currentLevelIndex = 0;
+		if (currentLevelIndex >= currentRegion.levels.Count)
+			currentLevelIndex = 0;
 
 		if (currentRegion.levels.Count > 0)
 		{
@@ -66,19 +63,27 @@ public class LevelManager : MonoBehaviour
 		ClearIndicators();
 		currentData = data;
 
-		if (currentLevelEnvironment != null) Destroy(currentLevelEnvironment);
+		if (currentLevelEnvironment != null)
+			Destroy(currentLevelEnvironment);
+
 		currentLevelEnvironment = Instantiate(data.levelPrefab, Vector3.zero, Quaternion.identity);
 
-		if (CameraController.Instance != null) CameraController.Instance.SetupCamera(data);
+		if (CameraController.Instance != null)
+			CameraController.Instance.SetupCamera(data);
 
-		if (navSurface != null) navSurface.BuildNavMesh();
+		if (navSurface != null)
+			navSurface.BuildNavMesh();
 
 		daySpawnPoints.Clear();
-		foreach (GameObject sp in GameObject.FindGameObjectsWithTag("SpawnPoint")) daySpawnPoints.Add(sp.transform);
+		foreach (GameObject sp in GameObject.FindGameObjectsWithTag("SpawnPoint"))
+			daySpawnPoints.Add(sp.transform);
 
 		nightSpawnPoints.Clear();
-		foreach (GameObject sp in GameObject.FindGameObjectsWithTag("NightSpawn")) nightSpawnPoints.Add(sp.transform);
-		if (nightSpawnPoints.Count == 0) nightSpawnPoints.AddRange(daySpawnPoints);
+		foreach (GameObject sp in GameObject.FindGameObjectsWithTag("NightSpawn"))
+			nightSpawnPoints.Add(sp.transform);
+
+		if (nightSpawnPoints.Count == 0)
+			nightSpawnPoints.AddRange(daySpawnPoints);
 
 		SpawnPlanningIndicators();
 		SpawnHumans(data.humanCount);
@@ -90,6 +95,7 @@ public class LevelManager : MonoBehaviour
 	private void SpawnPlanningIndicators()
 	{
 		if (indicatorPrefab == null) return;
+
 		foreach (Transform sp in daySpawnPoints)
 		{
 			Vector3 pos = sp.position + Vector3.up * indicatorHeight;
@@ -100,7 +106,10 @@ public class LevelManager : MonoBehaviour
 
 	private void ClearIndicators()
 	{
-		foreach (GameObject ind in activeIndicators) if (ind != null) Destroy(ind);
+		foreach (GameObject ind in activeIndicators)
+			if (ind != null)
+				Destroy(ind);
+
 		activeIndicators.Clear();
 	}
 
@@ -110,6 +119,7 @@ public class LevelManager : MonoBehaviour
 		{
 			Vector3 randomPos = Random.insideUnitSphere * 20f;
 			randomPos.y = 0;
+
 			if (NavMesh.SamplePosition(randomPos, out NavMeshHit hit, 20f, NavMesh.AllAreas))
 				Instantiate(humanPrefab, hit.position, Quaternion.identity);
 		}
@@ -119,6 +129,9 @@ public class LevelManager : MonoBehaviour
 	{
 		ClearIndicators();
 		StartCoroutine(InitialSpawnRoutine());
+
+		if (currentData.spawnBoss && currentData.bossPrefab != null)
+			StartCoroutine(SpawnBossRoutine());
 	}
 
 	private IEnumerator InitialSpawnRoutine()
@@ -126,9 +139,38 @@ public class LevelManager : MonoBehaviour
 		for (int i = 0; i < currentData.initialZombies; i++)
 		{
 			yield return new WaitForSeconds(currentData.initialSpawnDelay);
+
 			if (daySpawnPoints.Count > 0)
-				Instantiate(zombiePrefab, daySpawnPoints[Random.Range(0, daySpawnPoints.Count)].position, Quaternion.identity);
+			{
+				Instantiate(
+					zombiePrefab,
+					daySpawnPoints[Random.Range(0, daySpawnPoints.Count)].position,
+					Quaternion.identity
+				);
+			}
 		}
+	}
+
+	private IEnumerator SpawnBossRoutine()
+	{
+		yield return new WaitForSeconds(currentData.bossSpawnDelay);
+
+		if (daySpawnPoints.Count == 0)
+			yield break;
+
+		Transform spawnPoint = daySpawnPoints[Random.Range(0, daySpawnPoints.Count)];
+		GameObject bossObj = Instantiate(currentData.bossPrefab, spawnPoint.position, Quaternion.identity);
+
+		ZombieBoss boss = bossObj.GetComponent<ZombieBoss>();
+		if (boss != null)
+		{
+			boss.rageInterval = currentData.bossRageInterval;
+			boss.rageDuration = currentData.bossRageDuration;
+			boss.rageBreakRadius = currentData.bossBreakRadius;
+			boss.maxBuildingsPerRage = currentData.bossMaxBuildingsPerRage;
+		}
+
+		Debug.Log("[LevelManager] –ë–æ—Å—Å –∑–∞—Å–ø–∞–≤–Ω–µ–Ω");
 	}
 
 	public void StartSuddenDeath()
@@ -140,9 +182,11 @@ public class LevelManager : MonoBehaviour
 	private IEnumerator NightTransitionRoutine()
 	{
 		if (sunLight == null) yield break;
+
 		float transitionTime = 2f;
 		float t = 0;
 		float startAmbient = RenderSettings.ambientIntensity;
+
 		while (t < 1)
 		{
 			t += Time.deltaTime / transitionTime;
@@ -158,8 +202,15 @@ public class LevelManager : MonoBehaviour
 		while (GameManager.Instance.State == GameManager.GameState.SuddenDeath)
 		{
 			yield return new WaitForSeconds(currentData.suddenDeathSpawnRate);
+
 			if (nightSpawnPoints.Count > 0)
-				Instantiate(zombiePrefab, nightSpawnPoints[Random.Range(0, nightSpawnPoints.Count)].position, Quaternion.identity);
+			{
+				Instantiate(
+					zombiePrefab,
+					nightSpawnPoints[Random.Range(0, nightSpawnPoints.Count)].position,
+					Quaternion.identity
+				);
+			}
 		}
 	}
 }

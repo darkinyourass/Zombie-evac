@@ -17,6 +17,18 @@ MonoBehaviour:
   levelTimer: 30
   initialZombies: 200
   initialSpawnDelay: 0.3
-  nightMapRadius: 15
   suddenDeathSpawnRate: 0.2
-  nightZombiesPerTick: 4
+  requiredRescuedHumans: 10
+  cameraType: 0
+  cameraPosition: {x: -2.78, y: 27.4, z: -1.7}
+  cameraRotation: {x: 90, y: 0, z: 0}
+  cameraFieldOfView: 76
+  orthographicSize: 10
+  currencyReward: 50
+  levelRewardLootbox: {fileID: 0}
+  spawnBoss: 0
+  bossPrefab: {fileID: 0}
+  bossSpawnDelay: 5
+  bossRageInterval: 8
+  bossRageDuration: 2.5
+  bossBreakRadius: 4

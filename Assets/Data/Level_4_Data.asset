@@ -20,9 +20,15 @@ MonoBehaviour:
   suddenDeathSpawnRate: 0.2
   requiredRescuedHumans: 10
   cameraType: 0
-  cameraPosition: {x: 0, y: 20, z: -15}
-  cameraRotation: {x: 60, y: 0, z: 0}
-  cameraFieldOfView: 60
+  cameraPosition: {x: -2.78, y: 27.4, z: -1.7}
+  cameraRotation: {x: 90, y: 0, z: 0}
+  cameraFieldOfView: 76
   orthographicSize: 10
   currencyReward: 50
   levelRewardLootbox: {fileID: 11400000, guid: aedfda23cd5572c4dac0817ed913988e, type: 2}
+  spawnBoss: 0
+  bossPrefab: {fileID: 0}
+  bossSpawnDelay: 5
+  bossRageInterval: 8
+  bossRageDuration: 2.5
+  bossBreakRadius: 4

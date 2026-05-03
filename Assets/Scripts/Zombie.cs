@@ -1,4 +1,4 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,22 +8,22 @@ public class Zombie : MonoBehaviour
 {
 	public static List<Zombie> AllZombies = new List<Zombie>();
 
-	[Header("Õ‡ÒÚÓÈÍË ·‡Î‡ÌÒ‡")]
+	[Header("–ù–∞—Å—Ç—Ä–æ–π–∫–∏ –±–∞–ª–∞–Ω—Å–∞")]
 	public int hp = 30;
 	public float moveSpeed = 2.0f;
 	public int attackDamage = 1;
 	public float attackRadius = 1.2f;
 
-	[Header("—Ò˚ÎÍË")]
+	[Header("–°—Å—ã–ª–∫–∏")]
 	public GameObject zombiePrefab;
 
-	private NavMeshAgent agent;
+	protected NavMeshAgent agent;
 
 	private void Awake() => agent = GetComponent<NavMeshAgent>();
 	private void OnEnable() => AllZombies.Add(this);
 	private void OnDisable() => AllZombies.Remove(this);
 
-	private void Start()
+	protected virtual void Start()
 	{
 		if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, NavMesh.AllAreas))
 			transform.position = hit.position;
@@ -32,7 +32,7 @@ public class Zombie : MonoBehaviour
 		StartCoroutine(Brain());
 	}
 
-	private IEnumerator Brain()
+	protected virtual IEnumerator Brain()
 	{
 		while (true)
 		{
@@ -55,19 +55,17 @@ public class Zombie : MonoBehaviour
 							Destroy(target.gameObject);
 						}
 
-						// ÀŒ√» ¿ ¿“¿ » Õ¿ Ã¿ÿ»Õ” ”ƒ¿À≈Õ¿ - Ã¿ÿ»Õ” ¡ŒÀ‹ÿ≈ Õ≈À‹«ﬂ  ”—¿“‹
-
 						yield return new WaitForSeconds(1f);
 					}
 				}
 			}
+
 			yield return new WaitForSeconds(0.2f);
 		}
 	}
 
 	private Transform FindTarget()
 	{
-		// 1. œËÏ‡ÌÍ‡
 		var baits = FindObjectsOfType<Bait>();
 		foreach (var bait in baits)
 		{
@@ -75,20 +73,25 @@ public class Zombie : MonoBehaviour
 				return bait.transform;
 		}
 
-		// ÀŒ√» ¿ œŒ»— ¿ Ã¿ÿ»Õ€ ”ƒ¿À≈Õ¿ - «ŒÃ¡» «¿ Õ≈… Õ≈ ¡≈√¿ﬁ“
+		Transform best = null;
+		float minD = 100f;
 
-		// 2. À˛‰Ë
-		Transform best = null; float minD = 100f;
 		foreach (var h in Human.AllHumans)
 		{
 			if (h == null) continue;
+
 			float d = Vector3.Distance(transform.position, h.transform.position);
-			if (d < minD) { minD = d; best = h.transform; }
+			if (d < minD)
+			{
+				minD = d;
+				best = h.transform;
+			}
 		}
+
 		return best;
 	}
 
-	public void TakeDamage(int damageTaken)
+	public virtual void TakeDamage(int damageTaken)
 	{
 		hp -= damageTaken;
 		if (hp <= 0) Destroy(gameObject);

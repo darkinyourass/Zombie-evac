@@ -12,11 +12,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76a19b13f68c89648a0a4c1fba3f8a6f, type: 3}
   m_Name: Level_5_Data
   m_EditorClassIdentifier: 
-  levelPrefab: {fileID: 4058927015439930953, guid: e72bd972271fde6499532a093ebaa6e6, type: 3}
+  levelPrefab: {fileID: 4058927015439930953, guid: 27bd523dbc07f094ca2bb2fffde543fb, type: 3}
   humanCount: 50
   levelTimer: 30
   initialZombies: 200
   initialSpawnDelay: 0.3
-  nightMapRadius: 15
   suddenDeathSpawnRate: 0.2
-  nightZombiesPerTick: 4
+  requiredRescuedHumans: 10
+  cameraType: 0
+  cameraPosition: {x: -2.78, y: 27.4, z: -1.7}
+  cameraRotation: {x: 90, y: 0, z: 0}
+  cameraFieldOfView: 76
+  orthographicSize: 10
+  currencyReward: 50
+  levelRewardLootbox: {fileID: 0}
+  spawnBoss: 1
+  bossPrefab: {fileID: 5563988904170882665, guid: c30f7da6141f3644986e4e8c45544712, type: 3}
+  bossSpawnDelay: 5
+  bossRageInterval: 7
+  bossRageDuration: 2.5
+  bossBreakRadius: 4.5

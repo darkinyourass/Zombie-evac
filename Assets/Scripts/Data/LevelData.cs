@@ -14,8 +14,8 @@ public class LevelData : ScriptableObject
 	public float suddenDeathSpawnRate = 0.3f;
 
 	[Header("Условия победы")]
-	[Tooltip("Минимальное количество спасенных людей для победы")]
-	public int requiredRescuedHumans = 10; // <-- НОВОЕ ПОЛЕ
+	[Tooltip("Минимальное количество спасённых людей для победы")]
+	public int requiredRescuedHumans = 10;
 
 	[Header("Настройки Камеры Уровня")]
 	public CameraType cameraType = CameraType.Perspective;
@@ -27,4 +27,26 @@ public class LevelData : ScriptableObject
 	[Header("Награда за первое прохождение")]
 	public int currencyReward = 50;
 	public LootboxData levelRewardLootbox;
+
+	[Header("Настройки босса")]
+	[Tooltip("Нужно ли спавнить босса на этом уровне")]
+	public bool spawnBoss = false;
+
+	[Tooltip("Префаб босса")]
+	public GameObject bossPrefab;
+
+	[Tooltip("Через сколько секунд после старта уровня появится босс")]
+	public float bossSpawnDelay = 5f;
+
+	[Tooltip("Раз в сколько секунд босс входит в ярость")]
+	public float bossRageInterval = 8f;
+
+	[Tooltip("Сколько секунд длится ярость")]
+	public float bossRageDuration = 2.5f;
+
+	[Tooltip("Радиус ломания зданий во время ярости")]
+	public float bossBreakRadius = 4f;
+
+	[Tooltip("Сколько максимум зданий может сломать за одну ярость")]
+	public int bossMaxBuildingsPerRage = 1;
 }
