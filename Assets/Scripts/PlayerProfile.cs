@@ -2,8 +2,8 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
-// [ГДЕ ВИСИТ]: На объекте PlayerProfile (Синглтон)
-// [ЧТО СДЕЛАТЬ В ИНСПЕКТОРЕ]: Раскрой массив All Regions и закинь туда свои RegionConfig по порядку (Регион 1, Регион 2).
+// [ГДЕ ВИСИТ]: На пустом объекте PlayerProfile на сцене (Синглтон).
+// [ЧТО СДЕЛАТЬ В ИНСПЕКТОРЕ]: Раскрой массив All Regions и закинь туда свои RegionConfig по порядку.
 public class PlayerProfile : MonoBehaviour
 {
 	public static PlayerProfile Instance;
@@ -15,7 +15,7 @@ public class PlayerProfile : MonoBehaviour
 	public int currentRegionIndex = 0;
 	public int currentLevelIndex = 0;
 	public bool hasPendingMapAnimation = false;
-	public bool hasPendingRegionAnimation = false; // <-- Флаг для смены штата
+	public bool hasPendingRegionAnimation = false;
 
 	[Header("База Регионов")]
 	public List<RegionConfig> allRegions = new List<RegionConfig>();
@@ -81,28 +81,25 @@ public class PlayerProfile : MonoBehaviour
 		PlayerPrefs.Save();
 	}
 
-	// --- ЛОГИКА ПЕРЕХОДА УРОВНЕЙ И РЕГИОНОВ ---
 	public void CompleteCurrentLevel()
 	{
-		if (currentRegionIndex >= allRegions.Count) return; // Защита от краша, если игра пройдена
+		if (currentRegionIndex >= allRegions.Count) return;
 
 		currentLevelIndex++;
 		int levelsInCurrentRegion = allRegions[currentRegionIndex].levels.Count;
 
-		// Если прошли 5-й уровень
 		if (currentLevelIndex >= levelsInCurrentRegion)
 		{
 			currentRegionIndex++;
-			currentLevelIndex = 0; // Сбрасываем уровень на 0 для нового региона
+			currentLevelIndex = 0;
 
 			if (currentRegionIndex < allRegions.Count)
 			{
-				hasPendingRegionAnimation = true; // Запускаем анимацию нового штата
+				hasPendingRegionAnimation = true;
 				hasPendingMapAnimation = false;
 			}
 			else
 			{
-				// Игра пройдена
 				currentRegionIndex = allRegions.Count - 1;
 				currentLevelIndex = levelsInCurrentRegion;
 				hasPendingMapAnimation = true;
@@ -151,6 +148,7 @@ public class PlayerProfile : MonoBehaviour
 		hasPendingMapAnimation = false;
 		hasPendingRegionAnimation = false;
 	}
+
 }
 [System.Serializable]
 public class SerializationWrapper<T>

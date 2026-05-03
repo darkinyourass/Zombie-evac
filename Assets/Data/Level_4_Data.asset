@@ -17,6 +17,12 @@ MonoBehaviour:
   levelTimer: 30
   initialZombies: 200
   initialSpawnDelay: 0.3
-  nightMapRadius: 15
   suddenDeathSpawnRate: 0.2
-  nightZombiesPerTick: 4
+  requiredRescuedHumans: 10
+  cameraType: 0
+  cameraPosition: {x: 0, y: 20, z: -15}
+  cameraRotation: {x: 60, y: 0, z: 0}
+  cameraFieldOfView: 60
+  orthographicSize: 10
+  currencyReward: 50
+  levelRewardLootbox: {fileID: 11400000, guid: aedfda23cd5572c4dac0817ed913988e, type: 2}

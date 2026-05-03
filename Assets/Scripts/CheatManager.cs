@@ -45,9 +45,10 @@ public class CheatManager : MonoBehaviour
 		// Секретный анлок (5 тапов в левый верхний угол)
 		HandleSecretUnlock();
 
-		// ПК-КНОПКИ
+		// ПК-КНОПКИ (РАБОТАЮТ ВЕЗДЕ)
 		if (Input.GetKeyDown(KeyCode.F1)) GiveMaxResources();
 		if (Input.GetKeyDown(KeyCode.F7)) ResetSaves();
+		if (Input.GetKeyDown(KeyCode.F8)) GiveCardsCheat(); // <-- НОВЫЙ ЧИТ НА КАРТОЧКИ
 
 		// Остальные читы работают только если мы нашли GameManager (значит мы в бою)
 		if (GameManager.Instance != null)
@@ -112,6 +113,10 @@ public class CheatManager : MonoBehaviour
 			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "Unlock All (F1)")) GiveMaxResources();
 			yPos += btnH + padding;
 
+			// --- НОВЫЙ ЧИТ ДЛЯ МЕТЫ ---
+			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "+100 All Cards (F8)")) GiveCardsCheat();
+			yPos += btnH + padding;
+
 			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "RESET ALL (F7)")) ResetSaves();
 			yPos += btnH + padding;
 
@@ -134,6 +139,8 @@ public class CheatManager : MonoBehaviour
 		}
 	}
 
+	// --- ЛОГИКА ЧИТОВ ---
+
 	private void ResetSaves()
 	{
 		PlayerPrefs.DeleteAll();
@@ -146,14 +153,48 @@ public class CheatManager : MonoBehaviour
 	{
 		if (PlayerProfile.Instance == null) return;
 		PlayerProfile.Instance.totalCurrency += 10000;
+
 		foreach (CardData card in PlayerProfile.Instance.allAvailableCards)
 		{
 			if (PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == card.name) == null)
 				PlayerProfile.Instance.ownedCardsProgress.Add(new CardProgress(card.name));
 		}
-		PlayerProfile.Instance.SaveProfile();
 
-		// Если мы в меню — обновляем визуал колоды
+		PlayerProfile.Instance.SaveProfile();
+		RefreshDeckMenu();
+	}
+
+	// НОВЫЙ МЕТОД: Насыпает по 100 копий каждой карты
+	private void GiveCardsCheat()
+	{
+		if (PlayerProfile.Instance == null) return;
+
+		// Сыпем немного валюты сверху, чтобы было за что качать
+		PlayerProfile.Instance.totalCurrency += 5000;
+
+		foreach (CardData card in PlayerProfile.Instance.allAvailableCards)
+		{
+			CardProgress progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == card.name);
+
+			// Если карты еще нет — выдаем её
+			if (progress == null)
+			{
+				progress = new CardProgress(card.name);
+				PlayerProfile.Instance.ownedCardsProgress.Add(progress);
+			}
+
+			// Добавляем 100 дубликатов
+			progress.collectedShards += 100;
+		}
+
+		PlayerProfile.Instance.SaveProfile();
+		RefreshDeckMenu();
+		Debug.Log("<color=green>ЧИТ: Добавлено +100 дубликатов каждой карты и 5000 золота!</color>");
+	}
+
+	private void RefreshDeckMenu()
+	{
+		// Если мы в меню — обновляем визуал колоды мгновенно
 		var menu = FindFirstObjectByType<DeckMenuManager>();
 		if (menu != null) menu.RefreshUI();
 	}

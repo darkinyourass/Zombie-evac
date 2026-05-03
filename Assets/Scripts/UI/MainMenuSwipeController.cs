@@ -60,6 +60,12 @@ public class MainMenuSwipeController : MonoBehaviour, IBeginDragHandler, IDragHa
 		if (IsSwipeLocked) return;
 		rectTransform.DOKill();
 		startPosition = rectTransform.anchoredPosition.x;
+
+		// --- ФИКС БАГА: Прячем менюшку карты при начале свайпа ---
+		if (CardPopupManager.Instance != null)
+		{
+			CardPopupManager.Instance.CloseContextMenu();
+		}
 	}
 
 	public void OnDrag(PointerEventData eventData)
@@ -118,6 +124,13 @@ public class MainMenuSwipeController : MonoBehaviour, IBeginDragHandler, IDragHa
 	public void GoToTabFromButton(int tabIndex)
 	{
 		if (IsSwipeLocked) return;
+
+		// --- ФИКС БАГА: Прячем менюшку при переключении табов кнопкой ---
+		if (CardPopupManager.Instance != null)
+		{
+			CardPopupManager.Instance.CloseContextMenu();
+		}
+
 		GoToTab(tabIndex, false);
 	}
 
