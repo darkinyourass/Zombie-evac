@@ -17,6 +17,22 @@ public class Zombie : MonoBehaviour
 	[Header("Ссылки")]
 	public GameObject zombiePrefab;
 
+	[Header("Эффекты крови")]
+	[Tooltip("Эффект крови, когда человек заражается")]
+	public GameObject humanInfectionBloodEffect;
+
+	[Tooltip("Эффект крови, когда зомби умирает")]
+	public GameObject zombieDeathBloodEffect;
+
+	[Tooltip("Смещение эффекта заражения по высоте")]
+	public Vector3 humanInfectionEffectOffset = new Vector3(0f, 1f, 0f);
+
+	[Tooltip("Смещение эффекта смерти зомби по высоте")]
+	public Vector3 zombieDeathEffectOffset = new Vector3(0f, 1f, 0f);
+
+	[Tooltip("Сколько секунд живёт visual effect")]
+	public float effectLifetime = 3f;
+
 	protected NavMeshAgent agent;
 
 	private void Awake() => agent = GetComponent<NavMeshAgent>();
@@ -47,9 +63,13 @@ public class Zombie : MonoBehaviour
 					{
 						if (target.CompareTag("Human"))
 						{
+							Vector3 humanPos = target.position;
+
+							SpawnHumanInfectionEffect(humanPos);
+
 							if (zombiePrefab != null)
 							{
-								Instantiate(zombiePrefab, target.position, Quaternion.identity);
+								Instantiate(zombiePrefab, humanPos, Quaternion.identity);
 							}
 
 							Destroy(target.gameObject);
@@ -94,6 +114,30 @@ public class Zombie : MonoBehaviour
 	public virtual void TakeDamage(int damageTaken)
 	{
 		hp -= damageTaken;
-		if (hp <= 0) Destroy(gameObject);
+
+		if (hp <= 0)
+		{
+			Vector3 deathPos = transform.position;
+			SpawnZombieDeathEffect(deathPos);
+			Destroy(gameObject);
+		}
+	}
+
+	private void SpawnHumanInfectionEffect(Vector3 worldPosition)
+	{
+		if (humanInfectionBloodEffect == null) return;
+
+		Vector3 spawnPos = worldPosition + humanInfectionEffectOffset;
+		GameObject fx = Instantiate(humanInfectionBloodEffect, spawnPos, Quaternion.identity);
+		Destroy(fx, effectLifetime);
+	}
+
+	private void SpawnZombieDeathEffect(Vector3 worldPosition)
+	{
+		if (zombieDeathBloodEffect == null) return;
+
+		Vector3 spawnPos = worldPosition + zombieDeathEffectOffset;
+		GameObject fx = Instantiate(zombieDeathBloodEffect, spawnPos, Quaternion.identity);
+		Destroy(fx, effectLifetime);
 	}
 }

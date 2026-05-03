@@ -150,6 +150,8 @@ MonoBehaviour:
   attackDamage: 1
   attackRadius: 0.5
   zombiePrefab: {fileID: 5563988904170882665}
+  humanInfectionBloodEffect: {fileID: 194062, guid: 8c27aeead6d968e4ba986702d6b84335, type: 3}
+  zombieDeathBloodEffect: {fileID: 194062, guid: 7e5d3be847ce30f41aa49443a5a868bf, type: 3}
 --- !u!1 &9028930594325800811
 GameObject:
   m_ObjectHideFlags: 0

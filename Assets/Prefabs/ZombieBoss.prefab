@@ -96,6 +96,8 @@ MonoBehaviour:
   attackDamage: 1
   attackRadius: 1
   zombiePrefab: {fileID: 5563988904170882665, guid: 35f1b3dcc90a70748b76c896e76d296e, type: 3}
+  humanInfectionBloodEffect: {fileID: 194062, guid: 8c27aeead6d968e4ba986702d6b84335, type: 3}
+  zombieDeathBloodEffect: {fileID: 194062, guid: 7e5d3be847ce30f41aa49443a5a868bf, type: 3}
   rageInterval: 8
   rageDuration: 2.5
   rageBreakRadius: 4
