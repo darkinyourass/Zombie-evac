@@ -130,8 +130,8 @@ public class LevelManager : MonoBehaviour
 		ClearIndicators();
 		StartCoroutine(InitialSpawnRoutine());
 
-		if (currentData.spawnBoss && currentData.bossPrefab != null)
-			StartCoroutine(SpawnBossRoutine());
+		if (currentData.spawnBoss && currentData.bossPrefab != null && currentData.bossCount > 0)
+			StartCoroutine(SpawnBossesRoutine());
 	}
 
 	private IEnumerator InitialSpawnRoutine()
@@ -151,15 +151,29 @@ public class LevelManager : MonoBehaviour
 		}
 	}
 
-	private IEnumerator SpawnBossRoutine()
+	private IEnumerator SpawnBossesRoutine()
 	{
 		yield return new WaitForSeconds(currentData.bossSpawnDelay);
 
-		if (daySpawnPoints.Count == 0)
-			yield break;
+		int bossesToSpawn = Mathf.Max(0, currentData.bossCount);
+
+		for (int i = 0; i < bossesToSpawn; i++)
+		{
+			SpawnOneBoss(i + 1);
+
+			if (i < bossesToSpawn - 1)
+				yield return new WaitForSeconds(currentData.bossSpawnStepDelay);
+		}
+	}
+
+	private void SpawnOneBoss(int bossNumber)
+	{
+		if (daySpawnPoints.Count == 0) return;
+		if (currentData.bossPrefab == null) return;
 
 		Transform spawnPoint = daySpawnPoints[Random.Range(0, daySpawnPoints.Count)];
 		GameObject bossObj = Instantiate(currentData.bossPrefab, spawnPoint.position, Quaternion.identity);
+		bossObj.name = currentData.bossPrefab.name + "_" + bossNumber;
 
 		ZombieBoss boss = bossObj.GetComponent<ZombieBoss>();
 		if (boss != null)
@@ -170,7 +184,7 @@ public class LevelManager : MonoBehaviour
 			boss.maxBuildingsPerRage = currentData.bossMaxBuildingsPerRage;
 		}
 
-		Debug.Log("[LevelManager] Босс заспавнен");
+		Debug.Log("[LevelManager] Босс заспавнен: " + bossObj.name);
 	}
 
 	public void StartSuddenDeath()

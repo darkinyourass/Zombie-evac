@@ -35,8 +35,14 @@ public class LevelData : ScriptableObject
 	[Tooltip("Префаб босса")]
 	public GameObject bossPrefab;
 
-	[Tooltip("Через сколько секунд после старта уровня появится босс")]
+	[Tooltip("Сколько боссов появится на уровне")]
+	public int bossCount = 1;
+
+	[Tooltip("Через сколько секунд после старта уровня начнётся спаун боссов")]
 	public float bossSpawnDelay = 5f;
+
+	[Tooltip("Пауза между спауном нескольких боссов")]
+	public float bossSpawnStepDelay = 0.5f;
 
 	[Tooltip("Раз в сколько секунд босс входит в ярость")]
 	public float bossRageInterval = 8f;

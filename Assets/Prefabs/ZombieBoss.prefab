@@ -101,7 +101,7 @@ MonoBehaviour:
   rageBreakRadius: 4
   maxBuildingsPerRage: 1
   rageBounceHeight: 1.5
-  rageBounceSpeed: 2
+  rageBounceSpeed: 6
   destroyBuildingIfNoDamageable: 1
   buildingDamage: 999
   buildingTag: Building
