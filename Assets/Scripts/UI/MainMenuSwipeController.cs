@@ -3,63 +3,113 @@ using UnityEngine.EventSystems;
 using DG.Tweening;
 using UnityEngine.UI;
 
-// [ГДЕ ВИСИТ]: На объекте MenuSwipeController.
-public class MainMenuSwipeController : MonoBehaviour, IDragHandler, IEndDragHandler
+// [ГДЕ ВИСИТ]: На объекте TabsContainer (внутри Container/SafeArea).
+public class MainMenuSwipeController : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
-	// Глобальный флаг. Если true - меню не реагирует на пальцы.
 	public static bool IsSwipeLocked = false;
 
-	[Header("Ссылки на UI")]
-	[SerializeField] private RectTransform tabsContainer;
+	[Header("Ссылки")]
 	[SerializeField] private RectTransform[] navButtons;
 
-	[Header("Дизайн кнопок")]
-	[SerializeField] private Color activeColor = new Color(0.2f, 0.8f, 0.2f);
-	[SerializeField] private Color inactiveColor = new Color(0.8f, 0.8f, 0.8f);
-	[SerializeField] private float activeWidth = 350f;
-	[SerializeField] private float inactiveWidth = 200f;
-
-	[Header("Настройки свайпа")]
-	[SerializeField] private float snapDuration = 0.3f;
-	[SerializeField] private float swipeThreshold = 100f;
+	[Header("Настройки пружины")]
+	[SerializeField] private float snapDuration = 0.4f;
+	[SerializeField] private float swipeThreshold = 0.15f;
+	[Range(0.05f, 0.4f)]
+	[SerializeField] private float elasticity = 0.25f; // Чем меньше, тем "туже" резина
 
 	private int currentTab = 1;
-	private float panelWidth;
+	private RectTransform rectTransform;
+	private RectTransform parentRect;
+	private RectTransform[] tabs;
+	private float startPosition;
 
 	private void Start()
 	{
-		panelWidth = GetComponentInParent<Canvas>().GetComponent<RectTransform>().rect.width;
+		rectTransform = GetComponent<RectTransform>();
+		parentRect = transform.parent.GetComponent<RectTransform>();
 
-		foreach (var btn in navButtons)
+		// Собираем все вкладки
+		tabs = new RectTransform[transform.childCount];
+		for (int i = 0; i < transform.childCount; i++)
 		{
-			if (btn.GetComponent<LayoutElement>() == null) btn.gameObject.AddComponent<LayoutElement>();
+			tabs[i] = transform.GetChild(i).GetComponent<RectTransform>();
+			tabs[i].anchorMin = Vector2.zero;
+			tabs[i].anchorMax = Vector2.one;
+			tabs[i].sizeDelta = Vector2.zero;
+			tabs[i].localScale = Vector3.one;
 		}
 
+		AlignTabs();
 		GoToTab(1, true);
+	}
+
+	private void AlignTabs()
+	{
+		float width = parentRect.rect.width;
+		float overlapBuffer = 2f;
+
+		for (int i = 0; i < tabs.Length; i++)
+		{
+			// Устраняем щели наложением в 2px
+			tabs[i].anchoredPosition = new Vector2((i - 1) * (width - overlapBuffer / 2f), 0);
+		}
+	}
+
+	public void OnBeginDrag(PointerEventData eventData)
+	{
+		if (IsSwipeLocked) return;
+		rectTransform.DOKill();
+		startPosition = rectTransform.anchoredPosition.x;
 	}
 
 	public void OnDrag(PointerEventData eventData)
 	{
-		if (IsSwipeLocked) return; // <-- БЛОКИРОВКА СВАЙПА
+		if (IsSwipeLocked) return;
 
+		float width = parentRect.rect.width;
+		// Считаем дельту от точки первого нажатия
 		float dragDelta = eventData.position.x - eventData.pressPosition.x;
-		float basePosition = (1 - currentTab) * panelWidth;
-		float targetX = basePosition + dragDelta;
 
-		targetX = Mathf.Clamp(targetX, -panelWidth, panelWidth);
-		tabsContainer.anchoredPosition = new Vector2(targetX, tabsContainer.anchoredPosition.y);
+		// Лимиты: Deck (0) центрирован при X = width, Meta (2) при X = -width
+		float maxX = width;
+		float minX = -width;
+
+		float targetX = startPosition + dragDelta;
+
+		// Логика "Резины" для обоих краев
+		if (targetX > maxX)
+		{
+			// Тянем вправо (Deck -> пустота)
+			float overshot = targetX - maxX;
+			targetX = maxX + (overshot * elasticity);
+
+			// Жесткий лимит, чтобы панель не скрылась (не более 30% ширины)
+			targetX = Mathf.Min(targetX, maxX + (width * 0.3f));
+		}
+		else if (targetX < minX)
+		{
+			// Тянем влево (Meta -> пустота)
+			float overshot = targetX - minX;
+			targetX = minX + (overshot * elasticity);
+
+			// Жесткий лимит (не более 30% ширины)
+			targetX = Mathf.Max(targetX, minX - (width * 0.3f));
+		}
+
+		rectTransform.anchoredPosition = new Vector2(targetX, rectTransform.anchoredPosition.y);
 	}
 
 	public void OnEndDrag(PointerEventData eventData)
 	{
-		if (IsSwipeLocked) return; // <-- БЛОКИРОВКА СВАЙПА
+		if (IsSwipeLocked) return;
 
+		float width = parentRect.rect.width;
 		float dragDelta = eventData.position.x - eventData.pressPosition.x;
 
-		if (Mathf.Abs(dragDelta) > swipeThreshold)
+		if (Mathf.Abs(dragDelta) > width * swipeThreshold)
 		{
 			if (dragDelta > 0 && currentTab > 0) currentTab--;
-			else if (dragDelta < 0 && currentTab < 2) currentTab++;
+			else if (dragDelta < 0 && currentTab < tabs.Length - 1) currentTab++;
 		}
 
 		GoToTab(currentTab, false);
@@ -67,44 +117,34 @@ public class MainMenuSwipeController : MonoBehaviour, IDragHandler, IEndDragHand
 
 	public void GoToTabFromButton(int tabIndex)
 	{
-		if (IsSwipeLocked) return; // На всякий случай блочим и кнопки
+		if (IsSwipeLocked) return;
 		GoToTab(tabIndex, false);
 	}
 
 	private void GoToTab(int tabIndex, bool instant)
 	{
+		if (parentRect == null) return;
+
 		currentTab = tabIndex;
-		float targetX = (1 - currentTab) * panelWidth;
+		float width = parentRect.rect.width;
+		float targetX = (1 - currentTab) * width;
 
 		if (instant)
-		{
-			tabsContainer.anchoredPosition = new Vector2(targetX, tabsContainer.anchoredPosition.y);
-		}
+			rectTransform.anchoredPosition = new Vector2(targetX, rectTransform.anchoredPosition.y);
 		else
-		{
-			tabsContainer.DOAnchorPosX(targetX, snapDuration).SetEase(Ease.OutCubic);
-		}
+			// OutBack дает приятный пружинистый довод
+			rectTransform.DOAnchorPosX(targetX, snapDuration).SetEase(Ease.OutBack, 0.6f);
 
+		UpdateButtonsUI();
+	}
+
+	private void UpdateButtonsUI()
+	{
 		for (int i = 0; i < navButtons.Length; i++)
 		{
-			bool isActive = (i == currentTab);
-
-			LayoutElement le = navButtons[i].GetComponent<LayoutElement>();
-			float targetW = isActive ? activeWidth : inactiveWidth;
-
 			Image btnImg = navButtons[i].GetComponent<Image>();
-			Color targetColor = isActive ? activeColor : inactiveColor;
-
-			if (instant)
-			{
-				le.preferredWidth = targetW;
-				if (btnImg != null) btnImg.color = targetColor;
-			}
-			else
-			{
-				DOTween.To(() => le.preferredWidth, x => le.preferredWidth = x, targetW, snapDuration);
-				if (btnImg != null) btnImg.DOColor(targetColor, snapDuration);
-			}
+			if (btnImg != null)
+				btnImg.color = (i == currentTab) ? Color.green : Color.gray;
 		}
 	}
 }

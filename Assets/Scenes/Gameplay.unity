@@ -2033,7 +2033,7 @@ MonoBehaviour:
   m_ScaleFactor: 1
   m_ReferenceResolution: {x: 1080, y: 1920}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0.5
+  m_MatchWidthOrHeight: 0
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -2441,10 +2441,6 @@ MonoBehaviour:
   sunLight: {fileID: 410087040}
   nightColor: {r: 0.1986917, g: 0.1986917, b: 0.4433962, a: 1}
   nightIntensity: 0.5
-  allLevels:
-  - {fileID: 11400000, guid: fa20a1142962c8c40b488d74789ae57b, type: 2}
-  - {fileID: 11400000, guid: a87d2fef8dbc3bb448b0d20b41ce615c, type: 2}
-  - {fileID: 11400000, guid: a32d823efe6862b40a50e0a09f0e2048, type: 2}
   currentData: {fileID: 0}
 --- !u!1 &2059390077
 GameObject:
