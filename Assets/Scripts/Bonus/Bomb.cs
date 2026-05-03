@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class Bomb : MonoBehaviour
 {
@@ -11,7 +12,7 @@ public class Bomb : MonoBehaviour
 	// Скрытые статы (берутся из CardData)
 	private float damageRadius;
 	private int damage;
-	private float fallSpeed = 30f; // Оставим скорость падения фиксированной, или можешь тоже вынести в статы
+	private float fallSpeed = 30f;
 
 	private Vector3 targetPos;
 	private bool isFalling = false;
@@ -21,8 +22,8 @@ public class Bomb : MonoBehaviour
 
 	private void Start()
 	{
-		// Узнаем уровень и берем статы
 		int currentLevel = 1;
+
 		if (PlayerProfile.Instance != null && myCardData != null)
 		{
 			var progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == myCardData.name);
@@ -41,7 +42,6 @@ public class Bomb : MonoBehaviour
 
 	public void Launch(Vector3 pos)
 	{
-		// Запускаем старт, если Launch вызвался раньше Start
 		if (damageRadius == 0) Start();
 
 		targetPos = pos;
@@ -82,6 +82,7 @@ public class Bomb : MonoBehaviour
 	private void DrawCircle(float radius)
 	{
 		if (circleRenderer == null) return;
+
 		float angle = 0f;
 		for (int i = 0; i < 32; i++)
 		{
@@ -95,11 +96,44 @@ public class Bomb : MonoBehaviour
 	private void Explode()
 	{
 		Collider[] hits = Physics.OverlapSphere(transform.position, damageRadius);
+		HashSet<GameObject> processedObjects = new HashSet<GameObject>();
+
 		foreach (var hit in hits)
 		{
-			if (hit.CompareTag("Zombie")) hit.GetComponent<Zombie>()?.TakeDamage(damage);
-			else if (hit.CompareTag("Building")) Destroy(hit.gameObject);
-			else if (hit.CompareTag("Soldier") || hit.CompareTag("Sniper")) Destroy(hit.gameObject);
+			if (hit == null) continue;
+
+			GameObject target = hit.gameObject;
+
+			if (processedObjects.Contains(target))
+				continue;
+
+			processedObjects.Add(target);
+
+			Zombie zombie = target.GetComponent<Zombie>();
+			if (zombie != null)
+			{
+				zombie.TakeDamage(damage);
+				continue;
+			}
+
+			Human human = target.GetComponent<Human>();
+			if (human != null)
+			{
+				Destroy(human.gameObject);
+				continue;
+			}
+
+			if (target.CompareTag("Building"))
+			{
+				Destroy(target);
+				continue;
+			}
+
+			if (target.CompareTag("Soldier") || target.CompareTag("Sniper"))
+			{
+				Destroy(target);
+				continue;
+			}
 		}
 
 		if (explosionPrefab != null)
@@ -107,7 +141,10 @@ public class Bomb : MonoBehaviour
 			GameObject boom = Instantiate(explosionPrefab, targetPos, Quaternion.identity);
 			Destroy(boom, 3f);
 		}
-		else CreateProceduralExplosion(targetPos);
+		else
+		{
+			CreateProceduralExplosion(targetPos);
+		}
 
 		Destroy(warningCircle);
 		Destroy(gameObject);
