@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76a19b13f68c89648a0a4c1fba3f8a6f, type: 3}
   m_Name: Level_6_Data
   m_EditorClassIdentifier: 
-  levelPrefab: {fileID: 4058927015439930953, guid: e72bd972271fde6499532a093ebaa6e6, type: 3}
+  levelPrefab: {fileID: 4058927015439930953, guid: f41673eece9a8b04185f939f82447b45, type: 3}
   humanCount: 50
   levelTimer: 30
   initialZombies: 200
@@ -20,15 +20,18 @@ MonoBehaviour:
   suddenDeathSpawnRate: 0.2
   requiredRescuedHumans: 10
   cameraType: 0
-  cameraPosition: {x: -2.78, y: 27.4, z: -1.7}
+  cameraPosition: {x: -2.61, y: 27.4, z: 0.83}
   cameraRotation: {x: 90, y: 0, z: 0}
-  cameraFieldOfView: 76
+  cameraFieldOfView: 84
   orthographicSize: 10
   currencyReward: 50
   levelRewardLootbox: {fileID: 0}
   spawnBoss: 0
   bossPrefab: {fileID: 0}
+  bossCount: 1
   bossSpawnDelay: 5
+  bossSpawnStepDelay: 0.5
   bossRageInterval: 8
   bossRageDuration: 2.5
   bossBreakRadius: 4
+  bossMaxBuildingsPerRage: 1

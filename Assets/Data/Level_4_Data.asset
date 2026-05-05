@@ -26,7 +26,7 @@ MonoBehaviour:
   orthographicSize: 10
   currencyReward: 50
   levelRewardLootbox: {fileID: 11400000, guid: aedfda23cd5572c4dac0817ed913988e, type: 2}
-  spawnBoss: 1
+  spawnBoss: 0
   bossPrefab: {fileID: 5563988904170882665, guid: c30f7da6141f3644986e4e8c45544712, type: 3}
   bossCount: 4
   bossSpawnDelay: 8
