@@ -10,7 +10,7 @@ public class Zombie : MonoBehaviour
 
 	[Header("Настройки")]
 	public int maxHealth = 100;
-	public float detectRadius = 10f;
+	public float detectRadius = 10f; // теперь используется только как "приоритет ближних", а не жёсткий лимит
 	public float attackDistance = 1.4f;
 	public float attackCooldown = 1.0f;
 	public float moveSpeed = 2.8f;
@@ -97,6 +97,15 @@ public class Zombie : MonoBehaviour
 					}
 				}
 			}
+			else
+			{
+				// Если вообще никого не нашли, просто сбрасываем путь,
+				// но это случится только если на карте реально не осталось жертв
+				if (agent != null && agent.enabled && agent.isOnNavMesh)
+				{
+					agent.ResetPath();
+				}
+			}
 
 			yield return wait;
 		}
@@ -105,8 +114,9 @@ public class Zombie : MonoBehaviour
 	protected virtual Transform FindClosestVictim()
 	{
 		Transform closest = null;
-		float minDist = detectRadius;
+		float minDist = float.MaxValue;
 
+		// Сначала ищем любого ближайшего человека
 		foreach (var h in Human.AllHumans)
 		{
 			if (h == null) continue;
@@ -119,6 +129,7 @@ public class Zombie : MonoBehaviour
 			}
 		}
 
+		// Потом сравниваем с учёными
 		foreach (var s in Scientist.AllScientists)
 		{
 			if (s == null) continue;
