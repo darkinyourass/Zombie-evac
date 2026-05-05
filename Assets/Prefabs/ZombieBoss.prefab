@@ -29,7 +29,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1, y: 1.3, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6125451496915912296}
@@ -98,6 +98,9 @@ MonoBehaviour:
   zombiePrefab: {fileID: 5563988904170882665, guid: 35f1b3dcc90a70748b76c896e76d296e, type: 3}
   humanInfectionBloodEffect: {fileID: 194062, guid: 8c27aeead6d968e4ba986702d6b84335, type: 3}
   zombieDeathBloodEffect: {fileID: 194062, guid: 7e5d3be847ce30f41aa49443a5a868bf, type: 3}
+  humanInfectionEffectOffset: {x: 0, y: 1, z: 0}
+  zombieDeathEffectOffset: {x: 0, y: 1, z: 0}
+  effectLifetime: 3
   rageInterval: 8
   rageDuration: 2.5
   rageBreakRadius: 4
