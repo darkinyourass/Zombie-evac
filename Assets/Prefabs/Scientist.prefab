@@ -147,5 +147,6 @@ MonoBehaviour:
   walkSpeed: 0.5
   runSpeed: 1.2
   panicRadius: 3
+  chaosSettings: {fileID: 11400000, guid: f5c10597ed9fc044aa87725e3945c485, type: 2}
   isRescuing: 0
   rescueTarget: {fileID: 0}

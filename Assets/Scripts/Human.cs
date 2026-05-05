@@ -3,7 +3,6 @@ using UnityEngine.AI;
 using System.Collections.Generic;
 
 // [ГДЕ ВИСИТ]: На префабе человека (Human).
-// [НАСТРОЙКИ]: Ничего настраивать не нужно.
 [RequireComponent(typeof(NavMeshAgent))]
 public class Human : MonoBehaviour
 {
@@ -14,10 +13,17 @@ public class Human : MonoBehaviour
 	public float runSpeed = 4.0f;
 	public float panicRadius = 8f;
 
+	[Header("Хаос")]
+	public ChaosSettings chaosSettings;
+
 	private NavMeshAgent agent;
 
 	[HideInInspector] public bool isRescuing = false;
 	[HideInInspector] public Transform rescueTarget = null;
+
+	private bool isPanicking = false;
+	private float panicEndTime = 0f;
+	private float nextPanicCheckTime = 0f;
 
 	private void Awake() => agent = GetComponent<NavMeshAgent>();
 	private void OnEnable() => AllHumans.Add(this);
@@ -26,6 +32,7 @@ public class Human : MonoBehaviour
 	private void Start()
 	{
 		agent.speed = walkSpeed;
+
 		if (GameManager.Instance != null && GameManager.Instance.State != GameManager.GameState.Planning)
 		{
 			SetRandomDest();
@@ -34,10 +41,8 @@ public class Human : MonoBehaviour
 
 	private void Update()
 	{
-		// Если агент спрятан в транспорте — скрипт спит
 		if (!agent.isActiveAndEnabled || !agent.isOnNavMesh) return;
 
-		// Заморозка на этапе планирования
 		if (GameManager.Instance != null && GameManager.Instance.State == GameManager.GameState.Planning)
 		{
 			if (!agent.isStopped) agent.isStopped = true;
@@ -46,6 +51,19 @@ public class Human : MonoBehaviour
 		else if (agent.isStopped)
 		{
 			agent.isStopped = false;
+		}
+
+		// Если сейчас в панике — просто ждём окончания
+		if (isPanicking)
+		{
+			agent.speed = runSpeed;
+
+			if (Time.time >= panicEndTime)
+			{
+				isPanicking = false;
+			}
+
+			return;
 		}
 
 		// --- ПРИОРИТЕТ 1: ЭВАКУАЦИЯ ---
@@ -68,6 +86,7 @@ public class Human : MonoBehaviour
 		foreach (var z in Zombie.AllZombies)
 		{
 			if (z == null) continue;
+
 			float d = Vector3.Distance(transform.position, z.transform.position);
 			if (d < minD)
 			{
@@ -79,10 +98,17 @@ public class Human : MonoBehaviour
 		if (nearest != null)
 		{
 			agent.speed = runSpeed;
+
+			// Редкая паника
+			if (ShouldPanic(minD))
+			{
+				StartPanicMove();
+				return;
+			}
+
 			Vector3 runDir = (transform.position - nearest.transform.position).normalized;
 			Vector3 targetFlee = transform.position + runDir * 6f;
 
-			// Проверяем, не ведет ли путь в стену
 			if (NavMesh.SamplePosition(targetFlee, out NavMeshHit hit, 4f, NavMesh.AllAreas))
 			{
 				if (Vector3.Distance(agent.destination, hit.position) > 1f)
@@ -92,16 +118,15 @@ public class Human : MonoBehaviour
 			}
 			else
 			{
-				// Сзади тупик — ломимся в случайную сторону
 				SetRandomDest();
 			}
+
 			return;
 		}
 
 		// --- ПРИОРИТЕТ 3: МИРНАЯ ЖИЗНЬ ---
 		agent.speed = walkSpeed;
 
-		// Гуляем. Если застряли или дошли до конца — выбираем новую точку
 		if (!agent.pathPending)
 		{
 			if (!agent.hasPath || agent.remainingDistance < 0.5f || agent.pathStatus != NavMeshPathStatus.PathComplete)
@@ -111,10 +136,52 @@ public class Human : MonoBehaviour
 		}
 	}
 
+	private bool ShouldPanic(float nearestZombieDistance)
+	{
+		if (chaosSettings == null) return false;
+		if (!chaosSettings.chaosEnabled) return false;
+		if (Time.time < nextPanicCheckTime) return false;
+		if (nearestZombieDistance > chaosSettings.humanPanicTriggerRadius) return false;
+
+		nextPanicCheckTime = Time.time + chaosSettings.humanPanicCheckInterval;
+
+		return Random.value < chaosSettings.humanPanicChance;
+	}
+
+	private void StartPanicMove()
+	{
+		isPanicking = true;
+
+		float duration = 0.4f;
+		float moveDistance = 3f;
+
+		if (chaosSettings != null)
+		{
+			duration = chaosSettings.humanPanicDuration;
+			moveDistance = chaosSettings.humanPanicMoveDistance;
+		}
+
+		panicEndTime = Time.time + duration;
+
+		Vector2 random2D = Random.insideUnitCircle.normalized;
+		Vector3 panicDir = new Vector3(random2D.x, 0f, random2D.y);
+		Vector3 panicTarget = transform.position + panicDir * moveDistance;
+
+		if (NavMesh.SamplePosition(panicTarget, out NavMeshHit hit, 4f, NavMesh.AllAreas))
+		{
+			agent.SetDestination(hit.position);
+		}
+		else
+		{
+			SetRandomDest();
+		}
+	}
+
 	public void SetRescueTarget(Transform t)
 	{
 		isRescuing = true;
 		rescueTarget = t;
+		isPanicking = false;
 
 		if (agent.isActiveAndEnabled && agent.isOnNavMesh)
 		{
@@ -123,13 +190,11 @@ public class Human : MonoBehaviour
 		}
 	}
 
-	// Вызывается транспортом, когда он улетает/уезжает
 	public void CancelRescue()
 	{
 		isRescuing = false;
 		rescueTarget = null;
 
-		// Сбрасываем путь. В следующем кадре Update сам поймет, что делать: гулять или бежать от зомби
 		if (agent.isActiveAndEnabled && agent.isOnNavMesh)
 		{
 			agent.ResetPath();
@@ -139,6 +204,8 @@ public class Human : MonoBehaviour
 	private void SetRandomDest()
 	{
 		Vector3 rd = transform.position + Random.insideUnitSphere * 10f;
+		rd.y = transform.position.y;
+
 		if (NavMesh.SamplePosition(rd, out NavMeshHit h, 10f, NavMesh.AllAreas))
 		{
 			agent.SetDestination(h.position);

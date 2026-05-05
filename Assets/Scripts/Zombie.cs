@@ -10,7 +10,7 @@ public class Zombie : MonoBehaviour
 
 	[Header("Настройки")]
 	public int maxHealth = 100;
-	public float detectRadius = 10f; // теперь используется только как "приоритет ближних", а не жёсткий лимит
+	public float detectRadius = 10f; // теперь не ограничивает поиск жёстко, оставлен для совместимости
 	public float attackDistance = 1.4f;
 	public float attackCooldown = 1.0f;
 	public float moveSpeed = 2.8f;
@@ -19,11 +19,17 @@ public class Zombie : MonoBehaviour
 	public float infectDelay = 0.15f;
 	public GameObject zombiePrefab;
 
+	[Header("Хаос")]
+	public ChaosSettings chaosSettings;
+
 	protected NavMeshAgent agent;
 	protected int currentHealth;
 	protected bool isDead = false;
 	protected bool isAttacking = false;
 	protected Coroutine brainRoutine;
+
+	private bool isDistracted = false;
+	private float nextChaosCheckTime = 0f;
 
 	protected virtual void Awake()
 	{
@@ -76,10 +82,25 @@ public class Zombie : MonoBehaviour
 				agent.isStopped = false;
 			}
 
+			// Если зомби сейчас "затупил", просто пропускаем итерацию
+			if (isDistracted)
+			{
+				yield return wait;
+				continue;
+			}
+
 			Transform target = FindClosestVictim();
 
 			if (target != null)
 			{
+				// Редкая потеря цели
+				if (ShouldLoseTarget())
+				{
+					StartCoroutine(LoseTargetRoutine());
+					yield return wait;
+					continue;
+				}
+
 				float dist = Vector3.Distance(transform.position, target.position);
 
 				if (dist > attackDistance)
@@ -99,8 +120,7 @@ public class Zombie : MonoBehaviour
 			}
 			else
 			{
-				// Если вообще никого не нашли, просто сбрасываем путь,
-				// но это случится только если на карте реально не осталось жертв
+				// Если никого не нашли, просто сбрасываем путь
 				if (agent != null && agent.enabled && agent.isOnNavMesh)
 				{
 					agent.ResetPath();
@@ -111,12 +131,43 @@ public class Zombie : MonoBehaviour
 		}
 	}
 
+	private bool ShouldLoseTarget()
+	{
+		if (chaosSettings == null) return false;
+		if (!chaosSettings.chaosEnabled) return false;
+		if (Time.time < nextChaosCheckTime) return false;
+
+		nextChaosCheckTime = Time.time + chaosSettings.zombieLoseTargetCheckInterval;
+
+		return Random.value < chaosSettings.zombieLoseTargetChance;
+	}
+
+	private IEnumerator LoseTargetRoutine()
+	{
+		isDistracted = true;
+
+		if (agent != null && agent.enabled && agent.isOnNavMesh)
+		{
+			agent.ResetPath();
+		}
+
+		float duration = 0.6f;
+
+		if (chaosSettings != null)
+		{
+			duration = chaosSettings.zombieLoseTargetDuration;
+		}
+
+		yield return new WaitForSeconds(duration);
+
+		isDistracted = false;
+	}
+
 	protected virtual Transform FindClosestVictim()
 	{
 		Transform closest = null;
 		float minDist = float.MaxValue;
 
-		// Сначала ищем любого ближайшего человека
 		foreach (var h in Human.AllHumans)
 		{
 			if (h == null) continue;
@@ -129,7 +180,6 @@ public class Zombie : MonoBehaviour
 			}
 		}
 
-		// Потом сравниваем с учёными
 		foreach (var s in Scientist.AllScientists)
 		{
 			if (s == null) continue;
