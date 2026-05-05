@@ -6,13 +6,17 @@ public class MenuManager : MonoBehaviour
 {
 	[Header("UI Элементы")]
 	[SerializeField] private TextMeshProUGUI globalCurrencyText;
+	[SerializeField] private TextMeshProUGUI scientistsCurrencyText;
 
 	private void Start()
 	{
-		// Берем валюту напрямую из синглтона PlayerProfile!
-		if (globalCurrencyText != null && PlayerProfile.Instance != null)
+		if (PlayerProfile.Instance != null)
 		{
-			globalCurrencyText.text = PlayerProfile.Instance.totalCurrency.ToString();
+			if (globalCurrencyText != null)
+				globalCurrencyText.text = PlayerProfile.Instance.totalCurrency.ToString();
+
+			if (scientistsCurrencyText != null)
+				scientistsCurrencyText.text = PlayerProfile.Instance.totalScientistsCurrency.ToString();
 		}
 	}
 

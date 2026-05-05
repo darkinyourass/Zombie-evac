@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Level_1_Data
   m_EditorClassIdentifier: 
   levelPrefab: {fileID: 4058927015439930953, guid: 27bd523dbc07f094ca2bb2fffde543fb, type: 3}
-  humanCount: 50
+  humanCount: 5
   levelTimer: 30
-  initialZombies: 10
+  initialZombies: 1
   initialSpawnDelay: 0.5
   suddenDeathSpawnRate: 2.5
   requiredRescuedHumans: 10
@@ -26,9 +26,11 @@ MonoBehaviour:
   orthographicSize: 10
   currencyReward: 50
   levelRewardLootbox: {fileID: 11400000, guid: aedfda23cd5572c4dac0817ed913988e, type: 2}
+  scientistCount: 30
+  scientistPrefab: {fileID: 4991825780762222915, guid: f3998a4653bed4146998b1e0a79d50c9, type: 3}
   spawnBoss: 1
   bossPrefab: {fileID: 5563988904170882665, guid: c30f7da6141f3644986e4e8c45544712, type: 3}
-  bossCount: 1
+  bossCount: 10
   bossSpawnDelay: 1
   bossSpawnStepDelay: 0.5
   bossRageInterval: 3

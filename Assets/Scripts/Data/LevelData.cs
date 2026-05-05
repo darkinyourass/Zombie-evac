@@ -28,6 +28,13 @@ public class LevelData : ScriptableObject
 	public int currencyReward = 50;
 	public LootboxData levelRewardLootbox;
 
+	[Header("Учёные на уровне")]
+	[Tooltip("Сколько учёных будет на уровне")]
+	public int scientistCount = 0;
+
+	[Tooltip("Префаб учёного (Scientist) для этого уровня (если не задан — возьмём из LevelManager)")]
+	public GameObject scientistPrefab;
+
 	[Header("Настройки босса")]
 	[Tooltip("Нужно ли спавнить босса на этом уровне")]
 	public bool spawnBoss = false;

@@ -4,7 +4,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// [ГДЕ ВИСИТ]: На пустом объекте Managers
 public class UIManager : MonoBehaviour
 {
 	public static UIManager Instance;
@@ -123,6 +122,10 @@ public class UIManager : MonoBehaviour
 			Vector2 screenPos = Camera.main.WorldToScreenPoint(worldPosition);
 			ft.Launch($"+{amount}", screenPos, counterTarget, amount);
 		}
+		else
+		{
+			GameManager.Instance.OnFlyingTextReached(amount);
+		}
 	}
 
 	public void ShowNightPopup()
@@ -158,9 +161,8 @@ public class UIManager : MonoBehaviour
 		if (losePopup != null) losePopup.SetActive(true);
 	}
 
-	public void ShowResultPopup(int rescued, int total, CardData reward = null, bool isPerfect = false)
+	public void ShowResultPopup(int rescuedHumans, int rescuedTotal, int rescuedScientists, CardData reward = null, bool isPerfect = false)
 	{
-		// ФИКС: Теперь мы передаем isPerfect внутрь окна результата!
-		if (resultPopup != null) resultPopup.Show(rescued, total, reward, isPerfect);
+		if (resultPopup != null) resultPopup.Show(rescuedHumans, rescuedTotal, rescuedScientists, reward, isPerfect);
 	}
 }

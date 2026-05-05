@@ -12,6 +12,7 @@ public class LevelManager : MonoBehaviour
 	[SerializeField] private NavMeshSurface navSurface;
 	[SerializeField] private GameObject humanPrefab;
 	[SerializeField] private GameObject zombiePrefab;
+	[SerializeField] private GameObject defaultScientistPrefab;
 
 	[Header("Визуализация Планирования")]
 	[SerializeField] private GameObject indicatorPrefab;
@@ -86,7 +87,9 @@ public class LevelManager : MonoBehaviour
 			nightSpawnPoints.AddRange(daySpawnPoints);
 
 		SpawnPlanningIndicators();
+
 		SpawnHumans(data.humanCount);
+		SpawnScientists(data.scientistCount);
 
 		GameManager.Instance.SetTotalHumans(GameObject.FindGameObjectsWithTag("Human").Length);
 		GameManager.Instance.SetupTimer(data.levelTimer);
@@ -122,6 +125,27 @@ public class LevelManager : MonoBehaviour
 
 			if (NavMesh.SamplePosition(randomPos, out NavMeshHit hit, 20f, NavMesh.AllAreas))
 				Instantiate(humanPrefab, hit.position, Quaternion.identity);
+		}
+	}
+
+	private void SpawnScientists(int count)
+	{
+		if (count <= 0) return;
+
+		GameObject prefabToUse = currentData.scientistPrefab != null ? currentData.scientistPrefab : defaultScientistPrefab;
+		if (prefabToUse == null)
+		{
+			Debug.LogWarning("[LevelManager] Не задан префаб учёного (Scientist).");
+			return;
+		}
+
+		for (int i = 0; i < count; i++)
+		{
+			Vector3 randomPos = Random.insideUnitSphere * 20f;
+			randomPos.y = 0;
+
+			if (NavMesh.SamplePosition(randomPos, out NavMeshHit hit, 20f, NavMesh.AllAreas))
+				Instantiate(prefabToUse, hit.position, Quaternion.identity);
 		}
 	}
 

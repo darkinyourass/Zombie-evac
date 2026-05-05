@@ -26,9 +26,14 @@ MonoBehaviour:
   orthographicSize: 10
   currencyReward: 50
   levelRewardLootbox: {fileID: 0}
+  scientistCount: 0
+  scientistPrefab: {fileID: 4991825780762222915, guid: f3998a4653bed4146998b1e0a79d50c9, type: 3}
   spawnBoss: 0
-  bossPrefab: {fileID: 0}
+  bossPrefab: {fileID: 5563988904170882665, guid: c30f7da6141f3644986e4e8c45544712, type: 3}
+  bossCount: 1
   bossSpawnDelay: 5
+  bossSpawnStepDelay: 0.5
   bossRageInterval: 8
   bossRageDuration: 2.5
   bossBreakRadius: 4
+  bossMaxBuildingsPerRage: 1

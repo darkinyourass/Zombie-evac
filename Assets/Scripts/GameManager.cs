@@ -1,9 +1,8 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
-using System.Collections.Generic; // Нужно для работы со списками
+using System.Collections.Generic;
 
-// [ГДЕ ВИСИТ]: На пустом объекте GameManager
 public class GameManager : MonoBehaviour
 {
 	public static GameManager Instance;
@@ -15,10 +14,16 @@ public class GameManager : MonoBehaviour
 	public int rescuedHumans;
 	public int requiredHumans;
 
+	[Header("Статистика учёных")]
+	public int totalScientists;
+	public int rescuedScientists;
+
 	[HideInInspector] public int pendingHumans = 0;
+	[HideInInspector] public int pendingScientists = 0;
 
 	private float currentTimer;
 	private float startTimerAmount;
+	private bool perfectClearStarted = false;
 
 	private void Awake() => Instance = this;
 
@@ -27,27 +32,71 @@ public class GameManager : MonoBehaviour
 		totalHumans = count;
 		rescuedHumans = 0;
 		pendingHumans = 0;
+
+		totalScientists = Scientist.AllScientists.Count;
+		rescuedScientists = 0;
+		pendingScientists = 0;
+
 		requiredHumans = LevelManager.Instance.currentData.requiredRescuedHumans;
 
-		UIManager.Instance.UpdateRescuedCount(rescuedHumans, requiredHumans, false);
+		UIManager.Instance.UpdateRescuedCount(GetTotalRescued(), requiredHumans, false);
 	}
 
-	public void AddRescuedHumans(int count, Vector3 transportWorldPos)
+	// ===== ВЫЗЫВАЕТСЯ ТОЛЬКО ТРАНСПОРТОМ =====
+	public void AddRescuedFromTransport(int humans, int scientists, Vector3 transportWorldPos)
 	{
-		// ФИКС 2: Если игра уже окончена, игнорируем любые попытки добавить очки
 		if (State == GameState.GameOver || State == GameState.Lose) return;
 
-		pendingHumans += count;
-		UIManager.Instance.SpawnFlyingText(transportWorldPos, count);
+		int total = humans + scientists;
+		if (total <= 0) return;
+
+		pendingHumans += humans;
+		pendingScientists += scientists;
+
+		UIManager.Instance.SpawnFlyingText(transportWorldPos, total);
 	}
 
-	public void OnFlyingTextReached(int count)
+	// ===== СТАРЫЕ ОБЁРТКИ ДЛЯ СОВМЕСТИМОСТИ =====
+	public void AddRescuedHumans(int count, Vector3 transportWorldPos)
 	{
-		pendingHumans -= count;
-		rescuedHumans += count;
-		UIManager.Instance.UpdateRescuedCount(rescuedHumans, requiredHumans, true);
+		// Старый код считает только людей — для совместимости учёных не добавляем
+		AddRescuedFromTransport(count, 0, transportWorldPos);
+	}
+
+	public void AddRescuedScientists(int count, Vector3 transportWorldPos)
+	{
+		AddRescuedFromTransport(0, count, transportWorldPos);
+	}
+
+	// ===== FLYING TEXT ДОЛЕТЕЛ =====
+	public void OnFlyingTextReached(int totalAmount)
+	{
+		int totalPending = pendingHumans + pendingScientists;
+
+		if (totalPending <= 0)
+		{
+			// На всякий случай всё кидаем в людей
+			rescuedHumans += totalAmount;
+		}
+		else
+		{
+			float humansRatio = (float)pendingHumans / totalPending;
+			int humansFromThis = Mathf.RoundToInt(totalAmount * humansRatio);
+			int scientistsFromThis = totalAmount - humansFromThis;
+
+			pendingHumans -= humansFromThis;
+			pendingScientists -= scientistsFromThis;
+
+			rescuedHumans += humansFromThis;
+			rescuedScientists += scientistsFromThis;
+		}
+
+		UIManager.Instance.UpdateRescuedCount(GetTotalRescued(), requiredHumans, true);
 		CheckWinLoseCondition();
 	}
+
+	// Этот метод больше не используется, но оставим, чтобы не ловить null-референсы, если где-то старый вызов
+	public void OnFlyingScientistTextReached(int amount) { }
 
 	public void SetupTimer(float time)
 	{
@@ -82,60 +131,82 @@ public class GameManager : MonoBehaviour
 
 		if (State == GameState.Playing || State == GameState.SuddenDeath)
 		{
-			if (Human.AllHumans.Count == 0 && pendingHumans == 0) CheckWinLoseCondition(true);
+			bool levelEmpty = GetAliveResidentsCount() == 0 && (pendingHumans + pendingScientists) == 0;
+
+			if (levelEmpty) CheckWinLoseCondition(true);
 			else CheckWinLoseCondition(false);
 		}
 	}
 
+	private int GetAliveResidentsCount()
+	{
+		return Human.AllHumans.Count + Scientist.AllScientists.Count;
+	}
+
+	private int GetTotalRescued()
+	{
+		return rescuedHumans + rescuedScientists;
+	}
+
+	private int GetPendingTotal()
+	{
+		return pendingHumans + pendingScientists;
+	}
+
 	private void CheckPerfectClear()
 	{
+		if (perfectClearStarted) return;
+
 		float spawnTime = LevelManager.Instance.currentData.initialZombies * LevelManager.Instance.currentData.initialSpawnDelay + 1f;
 		if (startTimerAmount - currentTimer > spawnTime)
 		{
-			// Если зомби кончились, а люди еще есть - запускаем шоу
-			if (Zombie.AllZombies.Count == 0 && Human.AllHumans.Count > 0)
+			if (Zombie.AllZombies.Count == 0 && GetAliveResidentsCount() > 0)
 			{
+				perfectClearStarted = true;
 				StartCoroutine(PerfectClearRoutine());
 			}
 		}
 	}
 
-	// --- НОВАЯ САТИСФАЙНАЯ ЛОГИКА ---
 	private IEnumerator PerfectClearRoutine()
 	{
-		// Переводим стейт, чтобы Update больше не пытался завершить игру
 		State = GameState.GameOver;
 
-		// Копируем список оставшихся людей, чтобы безопасно их удалять
-		List<Human> survivors = new List<Human>(Human.AllHumans);
-		Human.AllHumans.Clear(); // Очищаем основной список
+		List<Human> humanSurvivors = new List<Human>(Human.AllHumans);
+		List<Scientist> scientistSurvivors = new List<Scientist>(Scientist.AllScientists);
 
-		// Выпускаем цифры пулеметом!
-		foreach (var h in survivors)
+		Human.AllHumans.Clear();
+		Scientist.AllScientists.Clear();
+
+		foreach (var h in humanSurvivors)
 		{
 			if (h != null)
 			{
 				pendingHumans += 1;
 				UIManager.Instance.SpawnFlyingText(h.transform.position, 1);
-
-				// Прячем человечка, чтобы он не мозолил глаза
 				h.gameObject.SetActive(false);
-
-				// Небольшая задержка для "сока" (80 миллисекунд)
 				yield return new WaitForSeconds(0.08f);
 			}
 		}
 
-		// Терпеливо ждем, пока все выпущенные цифры долетят и обновят счетчик
-		while (pendingHumans > 0)
+		foreach (var s in scientistSurvivors)
+		{
+			if (s != null)
+			{
+				pendingScientists += 1;
+				UIManager.Instance.SpawnFlyingText(s.transform.position, 1);
+				s.gameObject.SetActive(false);
+				yield return new WaitForSeconds(0.08f);
+			}
+		}
+
+		while (pendingHumans > 0 || pendingScientists > 0)
 		{
 			yield return null;
 		}
 
-		// Делаем драматичную паузу в полсекунды, чтобы игрок кайфанул от финальной цифры
 		yield return new WaitForSeconds(0.5f);
 
-		// Теперь можно смело вызывать экран победы с флагом "Идеально"
 		EndLevel(true);
 	}
 
@@ -143,14 +214,14 @@ public class GameManager : MonoBehaviour
 	{
 		if (State == GameState.GameOver || State == GameState.Lose) return;
 
-		int possibleToRescue = rescuedHumans + pendingHumans + Human.AllHumans.Count;
+		int possibleToRescue = GetTotalRescued() + GetPendingTotal() + GetAliveResidentsCount();
 
 		if (possibleToRescue < requiredHumans)
 		{
 			State = GameState.Lose;
 			UIManager.Instance.ShowLosePopup();
 		}
-		else if (isLevelEmpty && rescuedHumans >= requiredHumans)
+		else if (isLevelEmpty && GetTotalRescued() >= requiredHumans)
 		{
 			EndLevel(false);
 		}
@@ -159,7 +230,9 @@ public class GameManager : MonoBehaviour
 	public void EndLevel(bool isPerfect = false)
 	{
 		State = GameState.GameOver;
+
 		PlayerProfile.Instance.totalCurrency += rescuedHumans;
+		PlayerProfile.Instance.totalScientistsCurrency += rescuedScientists;
 
 		string levelId = "LevelPassed_" + LevelManager.Instance.currentData.name;
 		int hasPassedBefore = PlayerPrefs.GetInt(levelId, 0);
@@ -178,7 +251,7 @@ public class GameManager : MonoBehaviour
 		}
 
 		PlayerProfile.Instance.SaveProfile();
-		UIManager.Instance.ShowResultPopup(rescuedHumans, requiredHumans, droppedCard, isPerfect);
+		UIManager.Instance.ShowResultPopup(rescuedHumans, GetTotalRescued(), rescuedScientists, droppedCard, isPerfect);
 	}
 
 	public void RestartLevel()

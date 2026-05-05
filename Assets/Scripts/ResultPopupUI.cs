@@ -5,11 +5,12 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// [НАСТРОЙКИ]: В Инспекторе появится поле "Perfect Badge". Закинь туда плашку ИДЕАЛЬНО (Картинку или Текст).
 public class ResultPopupUI : MonoBehaviour
 {
 	[Header("Тексты результатов")]
-	[SerializeField] private TextMeshProUGUI resultText;
+	[SerializeField] private TextMeshProUGUI totalResultText;
+	[SerializeField] private TextMeshProUGUI humansResultText;
+	[SerializeField] private TextMeshProUGUI scientistsResultText;
 
 	[Header("Идеальное прохождение")]
 	[Tooltip("Перетащи сюда UI-объект плашки ИДЕАЛЬНО! (Сделай его выключенным по умолчанию)")]
@@ -39,10 +40,21 @@ public class ResultPopupUI : MonoBehaviour
 		}
 	}
 
-	public void Show(int rescued, int total, CardData rewardCard, bool isPerfect = false)
+	// rescuedHumans  – только обычные люди
+	// rescuedTotal   – люди + учёные
+	// rescuedScientists – только учёные
+	public void Show(int rescuedHumans, int rescuedTotal, int rescuedScientists, CardData rewardCard, bool isPerfect = false)
 	{
 		gameObject.SetActive(true);
-		resultText.text = $"СПАСЕНО:\n{rescued} / {total}";
+
+		if (totalResultText != null)
+			totalResultText.text = $"ВСЕГО СПАСЕНО:\n{rescuedTotal}";
+
+		if (humansResultText != null)
+			humansResultText.text = $"ЛЮДИ:\n{rescuedHumans}";
+
+		if (scientistsResultText != null)
+			scientistsResultText.text = $"УЧЁНЫЕ:\n{rescuedScientists}";
 
 		if (perfectBadge != null)
 		{
@@ -126,8 +138,6 @@ public class ResultPopupUI : MonoBehaviour
 
 	public void FinishLevelAndGoToMenu()
 	{
-		// --- ВОТ ОН ФИКС ---
-		// Обращаемся к нашему профилю. Он сам повысит уровень и включит анимацию на карте.
 		if (PlayerProfile.Instance != null)
 		{
 			PlayerProfile.Instance.CompleteCurrentLevel();

@@ -4,8 +4,6 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 
-// [ГДЕ ВИСИТ]: На префабе Машины.
-// [НАСТРОЙКИ]: Ничего нового перетаскивать не нужно, просто добавь стат Speed в карточку Машины.
 [RequireComponent(typeof(NavMeshAgent))]
 public class CarController : MonoBehaviour
 {
@@ -31,15 +29,17 @@ public class CarController : MonoBehaviour
 	private float loadTime;
 	private float sirenRadius;
 	private float boardingCooldown;
-	private float moveSpeed; // <-- НОВЫЙ ПАРАМЕТР
+	private float moveSpeed;
 
 	private NavMeshAgent agent;
 	private int currentLoad = 0;
+	private int loadedHumanCount = 0;
+	private int loadedScientistCount = 0;
 	private Transform exitWaypoint;
 	private bool isTooHot = false;
 	private bool sirenFired = false;
 
-	private List<GameObject> loadedHumans = new List<GameObject>();
+	private List<GameObject> loadedUnits = new List<GameObject>();
 
 	private void Awake() => agent = GetComponent<NavMeshAgent>();
 
@@ -55,17 +55,16 @@ public class CarController : MonoBehaviour
 			loadTime = myCardData.GetCalculatedStat(StatType.Duration, currentLevel);
 			sirenRadius = myCardData.GetCalculatedStat(StatType.Radius, currentLevel);
 			boardingCooldown = myCardData.GetCalculatedStat(StatType.Cooldown, currentLevel);
-			moveSpeed = myCardData.GetCalculatedStat(StatType.Speed, currentLevel); // <-- ЧИТАЕМ СКОРОСТЬ
+			moveSpeed = myCardData.GetCalculatedStat(StatType.Speed, currentLevel);
 		}
 
-		// Дефолтные значения (Safety net)
 		if (loadTime <= 0) loadTime = 15f;
 		if (sirenRadius <= 0) sirenRadius = 20f;
 		if (boardingCooldown <= 0) boardingCooldown = 0.5f;
 		if (maxCapacity <= 0) maxCapacity = 5;
 		if (moveSpeed <= 0) moveSpeed = 3.5f;
 
-		agent.speed = moveSpeed; // Применяем скорость к машине
+		agent.speed = moveSpeed;
 	}
 
 	public void Launch(Vector3 targetPos)
@@ -77,7 +76,8 @@ public class CarController : MonoBehaviour
 
 		Transform entryWaypoint = waypoints[0].transform;
 		exitWaypoint = waypoints[1].transform;
-		float minDist = float.MaxValue; float maxDist = float.MinValue;
+		float minDist = float.MaxValue;
+		float maxDist = float.MinValue;
 
 		foreach (var wp in waypoints)
 		{
@@ -113,11 +113,9 @@ public class CarController : MonoBehaviour
 	{
 		if (statusText == null) return;
 
-		// Если никого нет - прячем текст. Если есть - показываем просто цифру.
 		if (currentLoad == 0) statusText.text = "";
 		else statusText.text = currentLoad.ToString();
 
-		// Красим в красный, если зомби рядом, иначе зеленый
 		if (isTooHot) statusText.color = Color.red;
 		else statusText.color = Color.green;
 	}
@@ -140,7 +138,7 @@ public class CarController : MonoBehaviour
 
 			foreach (var h in Human.AllHumans)
 			{
-				if (Vector3.Distance(transform.position, h.transform.position) <= sirenRadius)
+				if (h != null && Vector3.Distance(transform.position, h.transform.position) <= sirenRadius)
 				{
 					h.SetRescueTarget(transform);
 					if (humanAlertPrefab != null)
@@ -150,6 +148,20 @@ public class CarController : MonoBehaviour
 					}
 				}
 			}
+
+			foreach (var s in Scientist.AllScientists)
+			{
+				if (s != null && Vector3.Distance(transform.position, s.transform.position) <= sirenRadius)
+				{
+					s.SetRescueTarget(transform);
+					if (humanAlertPrefab != null)
+					{
+						GameObject alert = Instantiate(humanAlertPrefab, s.transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0), s.transform);
+						Destroy(alert, alertDuration);
+					}
+				}
+			}
+
 			sirenFired = true;
 		}
 
@@ -162,29 +174,62 @@ public class CarController : MonoBehaviour
 			waitTimer += Time.deltaTime;
 
 			Collider[] dangerZone = Physics.OverlapSphere(transform.position, dangerRadius);
-			foreach (var d in dangerZone) if (d.CompareTag("Zombie")) { isTooHot = true; break; }
+			foreach (var d in dangerZone)
+			{
+				if (d.CompareTag("Zombie"))
+				{
+					isTooHot = true;
+					break;
+				}
+			}
 
 			if (isTooHot) break;
 
 			if (Time.time >= nextBoardTime)
 			{
-				Collider[] humansAtDoors = Physics.OverlapSphere(transform.position, boardingRadius);
 				int boarded = 0;
-				foreach (var h in humansAtDoors)
-				{
-					if (h.CompareTag("Human"))
-					{
-						var nav = h.GetComponent<NavMeshAgent>();
-						if (nav != null) nav.enabled = false;
-						h.transform.position = new Vector3(0, -1000, 0);
-						loadedHumans.Add(h.gameObject);
+				Collider[] unitsAtDoors = Physics.OverlapSphere(transform.position, boardingRadius);
 
-						currentLoad++; boarded++;
+				foreach (var unit in unitsAtDoors)
+				{
+					Human human = unit.GetComponent<Human>();
+					if (human != null && currentLoad < maxCapacity)
+					{
+						var nav = human.GetComponent<NavMeshAgent>();
+						if (nav != null) nav.enabled = false;
+						human.transform.position = new Vector3(0, -1000, 0);
+						loadedUnits.Add(human.gameObject);
+
+						currentLoad++;
+						loadedHumanCount++;
+						boarded++;
+
+						if (boarded >= boardPerTick || currentLoad >= maxCapacity) break;
+					}
+
+					Scientist scientist = unit.GetComponent<Scientist>();
+					if (scientist != null && currentLoad < maxCapacity)
+					{
+						var nav = scientist.GetComponent<NavMeshAgent>();
+						if (nav != null) nav.enabled = false;
+						scientist.transform.position = new Vector3(0, -1000, 0);
+						loadedUnits.Add(scientist.gameObject);
+
+						currentLoad++;
+						loadedScientistCount++;
+						boarded++;
+
 						if (boarded >= boardPerTick || currentLoad >= maxCapacity) break;
 					}
 				}
-				if (boarded > 0) { UpdateUI(); nextBoardTime = Time.time + boardingCooldown; }
+
+				if (boarded > 0)
+				{
+					UpdateUI();
+					nextBoardTime = Time.time + boardingCooldown;
+				}
 			}
+
 			yield return null;
 		}
 
@@ -196,15 +241,29 @@ public class CarController : MonoBehaviour
 			if (h != null && h.rescueTarget == transform) h.CancelRescue();
 		}
 
+		foreach (var s in Scientist.AllScientists)
+		{
+			if (s != null && s.rescueTarget == transform) s.CancelRescue();
+		}
+
 		currentState = CarState.Leaving;
 		agent.isStopped = false;
 		agent.SetDestination(exitWaypoint.position);
 
-		if (currentLoad > 0)
+		if (loadedHumanCount > 0 || loadedScientistCount > 0)
 		{
-			GameManager.Instance.AddRescuedHumans(currentLoad, transform.position);
-			foreach (var lh in loadedHumans) { if (lh != null) Destroy(lh); }
-			loadedHumans.Clear();
+			GameManager.Instance.AddRescuedFromTransport(
+				loadedHumanCount,
+				loadedScientistCount,
+				transform.position
+			);
+
+			foreach (var unit in loadedUnits)
+			{
+				if (unit != null) Destroy(unit);
+			}
+
+			loadedUnits.Clear();
 		}
 
 		while (agent.pathPending || agent.remainingDistance > 2f) yield return null;

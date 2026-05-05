@@ -2,14 +2,13 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
-// [ГДЕ ВИСИТ]: На пустом объекте PlayerProfile на сцене (Синглтон).
-// [ЧТО СДЕЛАТЬ В ИНСПЕКТОРЕ]: Раскрой массив All Regions и закинь туда свои RegionConfig по порядку.
 public class PlayerProfile : MonoBehaviour
 {
 	public static PlayerProfile Instance;
 
 	[Header("Данные игрока")]
 	public int totalCurrency = 0;
+	public int totalScientistsCurrency = 0;
 
 	[Header("Прогресс карты (Saga)")]
 	public int currentRegionIndex = 0;
@@ -40,6 +39,8 @@ public class PlayerProfile : MonoBehaviour
 	public void LoadProfile()
 	{
 		totalCurrency = PlayerPrefs.GetInt("TotalCurrency", 0);
+		totalScientistsCurrency = PlayerPrefs.GetInt("TotalScientistsCurrency", 0);
+
 		currentRegionIndex = PlayerPrefs.GetInt("CurrentRegion", 0);
 		currentLevelIndex = PlayerPrefs.GetInt("CurrentLevel", 0);
 		hasPendingMapAnimation = PlayerPrefs.GetInt("PendingMapAnim", 0) == 1;
@@ -67,6 +68,8 @@ public class PlayerProfile : MonoBehaviour
 	public void SaveProfile()
 	{
 		PlayerPrefs.SetInt("TotalCurrency", totalCurrency);
+		PlayerPrefs.SetInt("TotalScientistsCurrency", totalScientistsCurrency);
+
 		PlayerPrefs.SetInt("CurrentRegion", currentRegionIndex);
 		PlayerPrefs.SetInt("CurrentLevel", currentLevelIndex);
 		PlayerPrefs.SetInt("PendingMapAnim", hasPendingMapAnimation ? 1 : 0);
@@ -78,6 +81,7 @@ public class PlayerProfile : MonoBehaviour
 		string[] deckIds = new string[5];
 		for (int i = 0; i < 5; i++) deckIds[i] = currentDeck[i] != null ? currentDeck[i].name : "None";
 		PlayerPrefs.SetString("CurrentDeck", string.Join(",", deckIds));
+
 		PlayerPrefs.Save();
 	}
 
@@ -143,13 +147,14 @@ public class PlayerProfile : MonoBehaviour
 		ownedCardsProgress.Clear();
 		for (int i = 0; i < 5; i++) currentDeck[i] = null;
 		totalCurrency = 0;
+		totalScientistsCurrency = 0;
 		currentRegionIndex = 0;
 		currentLevelIndex = 0;
 		hasPendingMapAnimation = false;
 		hasPendingRegionAnimation = false;
 	}
-
 }
+
 [System.Serializable]
 public class SerializationWrapper<T>
 {

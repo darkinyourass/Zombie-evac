@@ -15,6 +15,7 @@ TagManager:
   - Building
   - Sniper
   - CarWaypoint
+  - Scientist
   layers:
   - Default
   - TransparentFX

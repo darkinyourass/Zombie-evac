@@ -4,8 +4,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.AI;
 
-// [ГДЕ ВИСИТ]: На префабе Вертолета.
-// [НАСТРОЙКИ]: В карточке Вертолета нужно добавить статы Duration (время ожидания) и Cooldown (скорость посадки).
 public class HelicopterController : MonoBehaviour
 {
 	public enum HeliState { Landing, Loading, TakingOff }
@@ -34,17 +32,17 @@ public class HelicopterController : MonoBehaviour
 	private int maxCapacity;
 	private float verticalSpeed;
 	private float attractRadius;
-
-	// НОВЫЕ ПАРАМЕТРЫ ДЛЯ СИНХРОНИЗАЦИИ С МАШИНОЙ
 	private float loadTime;
 	private float boardingCooldown;
 
 	private int currentLoad = 0;
+	private int loadedHumanCount = 0;
+	private int loadedScientistCount = 0;
 	private Vector3 targetPos;
 	private GameObject landingMarker;
 	private bool isTooHot = false;
 
-	private List<GameObject> loadedHumans = new List<GameObject>();
+	private List<GameObject> loadedUnits = new List<GameObject>();
 
 	private void Start()
 	{
@@ -57,13 +55,10 @@ public class HelicopterController : MonoBehaviour
 			maxCapacity = (int)myCardData.GetCalculatedStat(StatType.Capacity, currentLevel);
 			verticalSpeed = myCardData.GetCalculatedStat(StatType.Speed, currentLevel);
 			attractRadius = myCardData.GetCalculatedStat(StatType.Radius, currentLevel);
-
-			// Читаем новые статы
 			loadTime = myCardData.GetCalculatedStat(StatType.Duration, currentLevel);
 			boardingCooldown = myCardData.GetCalculatedStat(StatType.Cooldown, currentLevel);
 		}
 
-		// Дефолтные значения (Safety net)
 		if (maxCapacity <= 0) maxCapacity = 6;
 		if (verticalSpeed <= 0) verticalSpeed = 15f;
 		if (attractRadius <= 0) attractRadius = 12f;
@@ -83,7 +78,7 @@ public class HelicopterController : MonoBehaviour
 		if (loadText != null)
 		{
 			loadText.gameObject.SetActive(true);
-			loadText.text = ""; 
+			loadText.text = "";
 		}
 
 		if (customLandingPrefab != null)
@@ -134,6 +129,8 @@ public class HelicopterController : MonoBehaviour
 
 		foreach (var h in Human.AllHumans)
 		{
+			if (h == null) continue;
+
 			Vector2 heliPos2D = new Vector2(transform.position.x, transform.position.z);
 			Vector2 humanPos2D = new Vector2(h.transform.position.x, h.transform.position.z);
 
@@ -148,6 +145,26 @@ public class HelicopterController : MonoBehaviour
 				}
 			}
 		}
+
+		foreach (var s in Scientist.AllScientists)
+		{
+			if (s == null) continue;
+
+			Vector2 heliPos2D = new Vector2(transform.position.x, transform.position.z);
+			Vector2 scientistPos2D = new Vector2(s.transform.position.x, s.transform.position.z);
+
+			if (Vector2.Distance(heliPos2D, scientistPos2D) < attractRadius)
+			{
+				s.SetRescueTarget(transform);
+
+				if (humanAlertPrefab != null)
+				{
+					GameObject alert = Instantiate(humanAlertPrefab, s.transform.position + Vector3.up * 0.1f, Quaternion.Euler(90, 0, 0), s.transform);
+					Destroy(alert, alertDuration);
+				}
+			}
+		}
+
 		StartCoroutine(LoadRoutine());
 	}
 
@@ -156,12 +173,10 @@ public class HelicopterController : MonoBehaviour
 		float nextBoardTime = 0;
 		float waitTimer = 0;
 
-		// Логика 1 в 1 как у машины! Таймер против бесконечного ожидания.
 		while (currentLoad < maxCapacity && !isTooHot && waitTimer < loadTime)
 		{
 			waitTimer += Time.deltaTime;
 
-			// Проверка на зомби
 			foreach (var z in Zombie.AllZombies)
 			{
 				if (z != null && Vector3.Distance(transform.position, z.transform.position) < 3f)
@@ -175,9 +190,12 @@ public class HelicopterController : MonoBehaviour
 
 			if (Time.time >= nextBoardTime)
 			{
-				int boarded = 0;
+				bool boarded = false;
+
 				foreach (var hum in Human.AllHumans)
 				{
+					if (hum == null) continue;
+
 					Vector2 heliPos2D = new Vector2(transform.position.x, transform.position.z);
 					Vector2 humanPos2D = new Vector2(hum.transform.position.x, hum.transform.position.z);
 
@@ -186,24 +204,46 @@ public class HelicopterController : MonoBehaviour
 						var nav = hum.GetComponent<NavMeshAgent>();
 						if (nav != null) nav.enabled = false;
 						hum.transform.position = new Vector3(0, -1000, 0);
-						loadedHumans.Add(hum.gameObject);
+						loadedUnits.Add(hum.gameObject);
 
 						currentLoad++;
-						boarded++;
-
-						// Вертолет берет по одному за тик (можно вынести в конфиг, если надо)
+						loadedHumanCount++;
+						boarded = true;
 						break;
 					}
 				}
 
-				if (boarded > 0)
+				if (!boarded)
 				{
-				
-					if (loadText) loadText.text = currentLoad.ToString();
+					foreach (var sci in Scientist.AllScientists)
+					{
+						if (sci == null) continue;
 
+						Vector2 heliPos2D = new Vector2(transform.position.x, transform.position.z);
+						Vector2 scientistPos2D = new Vector2(sci.transform.position.x, sci.transform.position.z);
+
+						if (Vector2.Distance(heliPos2D, scientistPos2D) < 2.5f)
+						{
+							var nav = sci.GetComponent<NavMeshAgent>();
+							if (nav != null) nav.enabled = false;
+							sci.transform.position = new Vector3(0, -1000, 0);
+							loadedUnits.Add(sci.gameObject);
+
+							currentLoad++;
+							loadedScientistCount++;
+							boarded = true;
+							break;
+						}
+					}
+				}
+
+				if (boarded)
+				{
+					if (loadText) loadText.text = currentLoad.ToString();
 					nextBoardTime = Time.time + boardingCooldown;
 				}
 			}
+
 			yield return null;
 		}
 
@@ -220,13 +260,27 @@ public class HelicopterController : MonoBehaviour
 			if (h != null && h.rescueTarget == transform) h.CancelRescue();
 		}
 
+		foreach (var s in Scientist.AllScientists)
+		{
+			if (s != null && s.rescueTarget == transform) s.CancelRescue();
+		}
+
 		currentState = HeliState.TakingOff;
 
-		if (currentLoad > 0)
+		if (loadedHumanCount > 0 || loadedScientistCount > 0)
 		{
-			GameManager.Instance.AddRescuedHumans(currentLoad, transform.position);
-			foreach (var lh in loadedHumans) { if (lh != null) Destroy(lh); }
-			loadedHumans.Clear();
+			GameManager.Instance.AddRescuedFromTransport(
+				loadedHumanCount,
+				loadedScientistCount,
+				transform.position
+			);
+
+			foreach (var unit in loadedUnits)
+			{
+				if (unit != null) Destroy(unit);
+			}
+
+			loadedUnits.Clear();
 		}
 	}
 }

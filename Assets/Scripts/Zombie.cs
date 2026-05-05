@@ -8,136 +8,233 @@ public class Zombie : MonoBehaviour
 {
 	public static List<Zombie> AllZombies = new List<Zombie>();
 
-	[Header("Настройки баланса")]
-	public int hp = 30;
-	public float moveSpeed = 2.0f;
-	public int attackDamage = 1;
-	public float attackRadius = 1.2f;
+	[Header("Настройки")]
+	public int maxHealth = 100;
+	public float detectRadius = 10f;
+	public float attackDistance = 1.4f;
+	public float attackCooldown = 1.0f;
+	public float moveSpeed = 2.8f;
 
-	[Header("Ссылки")]
+	[Header("Заражение")]
+	public float infectDelay = 0.15f;
 	public GameObject zombiePrefab;
 
-	[Header("Эффекты крови")]
-	[Tooltip("Эффект крови, когда человек заражается")]
-	public GameObject humanInfectionBloodEffect;
-
-	[Tooltip("Эффект крови, когда зомби умирает")]
-	public GameObject zombieDeathBloodEffect;
-
-	[Tooltip("Смещение эффекта заражения по высоте")]
-	public Vector3 humanInfectionEffectOffset = new Vector3(0f, 1f, 0f);
-
-	[Tooltip("Смещение эффекта смерти зомби по высоте")]
-	public Vector3 zombieDeathEffectOffset = new Vector3(0f, 1f, 0f);
-
-	[Tooltip("Сколько секунд живёт visual effect")]
-	public float effectLifetime = 3f;
-
 	protected NavMeshAgent agent;
+	protected int currentHealth;
+	protected bool isDead = false;
+	protected bool isAttacking = false;
+	protected Coroutine brainRoutine;
 
-	private void Awake() => agent = GetComponent<NavMeshAgent>();
-	private void OnEnable() => AllZombies.Add(this);
-	private void OnDisable() => AllZombies.Remove(this);
+	protected virtual void Awake()
+	{
+		agent = GetComponent<NavMeshAgent>();
+		currentHealth = maxHealth;
+	}
+
+	protected virtual void OnEnable()
+	{
+		AllZombies.Add(this);
+	}
+
+	protected virtual void OnDisable()
+	{
+		AllZombies.Remove(this);
+	}
 
 	protected virtual void Start()
 	{
-		if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, NavMesh.AllAreas))
-			transform.position = hit.position;
+		if (agent != null)
+		{
+			agent.speed = moveSpeed;
+		}
 
-		agent.speed = moveSpeed;
-		StartCoroutine(Brain());
+		brainRoutine = StartCoroutine(Brain());
 	}
 
 	protected virtual IEnumerator Brain()
 	{
-		while (true)
+		WaitForSeconds wait = new WaitForSeconds(0.15f);
+
+		while (!isDead)
 		{
-			if (agent.isOnNavMesh)
+			if (GameManager.Instance != null &&
+				(GameManager.Instance.State == GameManager.GameState.Planning ||
+				 GameManager.Instance.State == GameManager.GameState.GameOver ||
+				 GameManager.Instance.State == GameManager.GameState.Lose))
 			{
-				Transform target = FindTarget();
-				if (target != null)
+				if (agent != null && agent.enabled && agent.isOnNavMesh)
 				{
-					agent.SetDestination(target.position);
+					agent.isStopped = true;
+				}
 
-					if (Vector3.Distance(transform.position, target.position) <= attackRadius)
+				yield return wait;
+				continue;
+			}
+
+			if (agent != null && agent.enabled && agent.isOnNavMesh)
+			{
+				agent.isStopped = false;
+			}
+
+			Transform target = FindClosestVictim();
+
+			if (target != null)
+			{
+				float dist = Vector3.Distance(transform.position, target.position);
+
+				if (dist > attackDistance)
+				{
+					if (agent != null && agent.enabled && agent.isOnNavMesh)
 					{
-						if (target.CompareTag("Human"))
-						{
-							Vector3 humanPos = target.position;
-
-							SpawnHumanInfectionEffect(humanPos);
-
-							if (zombiePrefab != null)
-							{
-								Instantiate(zombiePrefab, humanPos, Quaternion.identity);
-							}
-
-							Destroy(target.gameObject);
-						}
-
-						yield return new WaitForSeconds(1f);
+						agent.SetDestination(target.position);
+					}
+				}
+				else
+				{
+					if (!isAttacking)
+					{
+						StartCoroutine(AttackRoutine(target));
 					}
 				}
 			}
 
-			yield return new WaitForSeconds(0.2f);
+			yield return wait;
 		}
 	}
 
-	private Transform FindTarget()
+	protected virtual Transform FindClosestVictim()
 	{
-		var baits = FindObjectsOfType<Bait>();
-		foreach (var bait in baits)
-		{
-			if (bait != null && Vector3.Distance(transform.position, bait.transform.position) <= bait.attractRadius)
-				return bait.transform;
-		}
-
-		Transform best = null;
-		float minD = 100f;
+		Transform closest = null;
+		float minDist = detectRadius;
 
 		foreach (var h in Human.AllHumans)
 		{
 			if (h == null) continue;
 
 			float d = Vector3.Distance(transform.position, h.transform.position);
-			if (d < minD)
+			if (d < minDist)
 			{
-				minD = d;
-				best = h.transform;
+				minDist = d;
+				closest = h.transform;
 			}
 		}
 
-		return best;
+		foreach (var s in Scientist.AllScientists)
+		{
+			if (s == null) continue;
+
+			float d = Vector3.Distance(transform.position, s.transform.position);
+			if (d < minDist)
+			{
+				minDist = d;
+				closest = s.transform;
+			}
+		}
+
+		return closest;
+	}
+
+	protected virtual IEnumerator AttackRoutine(Transform target)
+	{
+		isAttacking = true;
+
+		if (agent != null && agent.enabled && agent.isOnNavMesh)
+		{
+			agent.ResetPath();
+		}
+
+		yield return new WaitForSeconds(infectDelay);
+
+		if (target != null && !isDead)
+		{
+			float dist = Vector3.Distance(transform.position, target.position);
+			if (dist <= attackDistance + 0.25f)
+			{
+				InfectTarget(target.gameObject);
+			}
+		}
+
+		yield return new WaitForSeconds(attackCooldown);
+		isAttacking = false;
+	}
+
+	protected virtual void InfectTarget(GameObject targetObj)
+	{
+		if (targetObj == null) return;
+
+		Human human = targetObj.GetComponent<Human>();
+		if (human != null)
+		{
+			InfectHuman(human);
+			return;
+		}
+
+		Scientist scientist = targetObj.GetComponent<Scientist>();
+		if (scientist != null)
+		{
+			InfectScientist(scientist);
+			return;
+		}
+	}
+
+	protected virtual void InfectHuman(Human human)
+	{
+		if (human == null) return;
+
+		Vector3 pos = human.transform.position;
+		Quaternion rot = human.transform.rotation;
+
+		Human.AllHumans.Remove(human);
+		Destroy(human.gameObject);
+
+		if (zombiePrefab != null)
+		{
+			Instantiate(zombiePrefab, pos, rot);
+		}
+	}
+
+	protected virtual void InfectScientist(Scientist scientist)
+	{
+		if (scientist == null) return;
+
+		Vector3 pos = scientist.transform.position;
+		Quaternion rot = scientist.transform.rotation;
+
+		Scientist.AllScientists.Remove(scientist);
+		Destroy(scientist.gameObject);
+
+		if (zombiePrefab != null)
+		{
+			Instantiate(zombiePrefab, pos, rot);
+		}
 	}
 
 	public virtual void TakeDamage(int damageTaken)
 	{
-		hp -= damageTaken;
+		if (isDead) return;
 
-		if (hp <= 0)
+		currentHealth -= damageTaken;
+		if (currentHealth <= 0)
 		{
-			Vector3 deathPos = transform.position;
-			SpawnZombieDeathEffect(deathPos);
-			Destroy(gameObject);
+			Die();
 		}
 	}
 
-	private void SpawnHumanInfectionEffect(Vector3 worldPosition)
+	protected virtual void Die()
 	{
-		if (humanInfectionBloodEffect == null) return;
+		if (isDead) return;
+		isDead = true;
 
-		Vector3 spawnPos = worldPosition + humanInfectionEffectOffset;
-		GameObject fx = Instantiate(humanInfectionBloodEffect, spawnPos, Quaternion.identity);
-		Destroy(fx, effectLifetime);
-	}
+		if (brainRoutine != null)
+		{
+			StopCoroutine(brainRoutine);
+		}
 
-	private void SpawnZombieDeathEffect(Vector3 worldPosition)
-	{
-		if (zombieDeathBloodEffect == null) return;
+		if (agent != null && agent.enabled)
+		{
+			agent.isStopped = true;
+		}
 
-		Vector3 spawnPos = worldPosition + zombieDeathEffectOffset;
-		GameObject fx = Instantiate(zombieDeathBloodEffect, spawnPos, Quaternion.identity);
-		Destroy(fx, effectLifetime);
+		Destroy(gameObject);
 	}
 }

@@ -1254,6 +1254,17 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1318797597}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &912556545 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 80489521643367877, guid: 0151aae79eddd7a4881c11d0ec1848b9, type: 3}
+  m_PrefabInstance: {fileID: 6760221163753566951}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &953367143
 GameObject:
   m_ObjectHideFlags: 0
@@ -1287,7 +1298,10 @@ MonoBehaviour:
   totalHumans: 0
   rescuedHumans: 0
   requiredHumans: 0
+  totalScientists: 0
+  rescuedScientists: 0
   pendingHumans: 0
+  pendingScientists: 0
 --- !u!4 &953367145
 Transform:
   m_ObjectHideFlags: 0
@@ -2436,6 +2450,7 @@ MonoBehaviour:
   navSurface: {fileID: 273244189}
   humanPrefab: {fileID: 4991825780762222915, guid: 3d6b2827589b18448a7be0adb0dd57fd, type: 3}
   zombiePrefab: {fileID: 5563988904170882665, guid: 35f1b3dcc90a70748b76c896e76d296e, type: 3}
+  defaultScientistPrefab: {fileID: 4991825780762222915, guid: f3998a4653bed4146998b1e0a79d50c9, type: 3}
   indicatorPrefab: {fileID: 6257564150766856418, guid: 463fd29ce62a33c47aa871ae0fbbef1d, type: 3}
   indicatorHeight: 1.5
   sunLight: {fileID: 410087040}
@@ -2892,6 +2907,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1626943698}
     m_Modifications:
+    - target: {fileID: 395597841392493416, guid: 0151aae79eddd7a4881c11d0ec1848b9, type: 3}
+      propertyPath: m_Name
+      value: HumanResultText
+      objectReference: {fileID: 0}
     - target: {fileID: 4486902113839574102, guid: 0151aae79eddd7a4881c11d0ec1848b9, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -2972,6 +2991,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4702321499309711782, guid: 0151aae79eddd7a4881c11d0ec1848b9, type: 3}
+      propertyPath: totalResultText
+      value: 
+      objectReference: {fileID: 6760221163753566952}
+    - target: {fileID: 4702321499309711782, guid: 0151aae79eddd7a4881c11d0ec1848b9, type: 3}
+      propertyPath: humansResultText
+      value: 
+      objectReference: {fileID: 912556545}
     - target: {fileID: 7832137863374039599, guid: 0151aae79eddd7a4881c11d0ec1848b9, type: 3}
       propertyPath: m_Name
       value: ResultPopupPanel
@@ -2985,6 +3012,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0151aae79eddd7a4881c11d0ec1848b9, type: 3}
+--- !u!114 &6760221163753566952 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 831977791208085173, guid: 0151aae79eddd7a4881c11d0ec1848b9, type: 3}
+  m_PrefabInstance: {fileID: 6760221163753566951}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
