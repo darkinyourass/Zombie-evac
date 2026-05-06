@@ -40,8 +40,8 @@ public class ResultPopupUI : MonoBehaviour
 		}
 	}
 
-	// rescuedHumans  ñ ÚÓÎ¸ÍÓ Ó·˚˜Ì˚Â Î˛‰Ë
-	// rescuedTotal   ñ Î˛‰Ë + Û˜∏Ì˚Â
+	// rescuedHumans ñ ÚÓÎ¸ÍÓ Ó·˚˜Ì˚Â Î˛‰Ë
+	// rescuedTotal ñ Î˛‰Ë + Û˜∏Ì˚Â
 	// rescuedScientists ñ ÚÓÎ¸ÍÓ Û˜∏Ì˚Â
 	public void Show(int rescuedHumans, int rescuedTotal, int rescuedScientists, CardData rewardCard, bool isPerfect = false)
 	{
@@ -53,8 +53,17 @@ public class ResultPopupUI : MonoBehaviour
 		if (humansResultText != null)
 			humansResultText.text = $"Àﬁƒ»:\n{rescuedHumans}";
 
+		bool levelHasScientists = GameManager.Instance != null && GameManager.Instance.totalScientists > 0;
+
 		if (scientistsResultText != null)
-			scientistsResultText.text = $"”◊®Õ€≈:\n{rescuedScientists}";
+		{
+			scientistsResultText.gameObject.SetActive(levelHasScientists);
+
+			if (levelHasScientists)
+			{
+				scientistsResultText.text = $"”◊®Õ€≈:\n{rescuedScientists}";
+			}
+		}
 
 		if (perfectBadge != null)
 		{
@@ -62,8 +71,12 @@ public class ResultPopupUI : MonoBehaviour
 			perfectBadge.transform.localScale = Vector3.zero;
 		}
 
-		btnNoThanks.SetActive(false);
-		Invoke(nameof(ShowNoThanksButton), noThanksDelay);
+		if (btnNoThanks != null)
+		{
+			btnNoThanks.SetActive(false);
+			CancelInvoke(nameof(ShowNoThanksButton));
+			Invoke(nameof(ShowNoThanksButton), noThanksDelay);
+		}
 
 		if (isPerfect && perfectBadge != null)
 		{
@@ -76,7 +89,9 @@ public class ResultPopupUI : MonoBehaviour
 		if (rewardCard != null && rewardPanel != null)
 		{
 			rewardPanel.SetActive(true);
-			rewardCardIcon.sprite = rewardCard.icon;
+
+			if (rewardCardIcon != null)
+				rewardCardIcon.sprite = rewardCard.icon;
 
 			bool isNew = true;
 			if (PlayerProfile.Instance != null)
@@ -88,13 +103,16 @@ public class ResultPopupUI : MonoBehaviour
 				}
 			}
 
-			if (isNew)
+			if (rewardCardName != null)
 			{
-				rewardCardName.text = $"ÕŒ¬¿ﬂ  ¿–“¿!\n<color=yellow>{rewardCard.cardName}</color>";
-			}
-			else
-			{
-				rewardCardName.text = $"Œ— ŒÀŒ !\n<color=orange>{rewardCard.cardName}</color>";
+				if (isNew)
+				{
+					rewardCardName.text = $"ÕŒ¬¿ﬂ  ¿–“¿!\n<color=yellow>{rewardCard.cardName}</color>";
+				}
+				else
+				{
+					rewardCardName.text = $"Œ— ŒÀŒ !\n<color=orange>{rewardCard.cardName}</color>";
+				}
 			}
 
 			StartCoroutine(AnimateRewardPopup());
@@ -107,6 +125,8 @@ public class ResultPopupUI : MonoBehaviour
 
 	private IEnumerator AnimateRewardPopup()
 	{
+		if (rewardPanel == null) yield break;
+
 		rewardPanel.transform.localScale = Vector3.zero;
 		float time = 0f;
 		float duration = 0.5f;
@@ -119,12 +139,14 @@ public class ResultPopupUI : MonoBehaviour
 			rewardPanel.transform.localScale = new Vector3(scale, scale, 1f);
 			yield return null;
 		}
+
 		rewardPanel.transform.localScale = Vector3.one;
 	}
 
 	private void ShowNoThanksButton()
 	{
-		if (btnNoThanks != null) btnNoThanks.SetActive(true);
+		if (btnNoThanks != null)
+			btnNoThanks.SetActive(true);
 	}
 
 	private void Update()

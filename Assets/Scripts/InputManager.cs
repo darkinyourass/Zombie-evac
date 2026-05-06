@@ -8,7 +8,7 @@ public class InputManager : MonoBehaviour
 
 	[Header("Визуал")]
 	[Tooltip("Объект с красным крестиком (SpriteRenderer), который появляется при ошибке")]
-	public GameObject invalidPlacementIcon; // <-- НОВОЕ ПОЛЕ ДЛЯ КРЕСТИКА
+	public GameObject invalidPlacementIcon;
 
 	private Camera mainCam;
 	private CardData draggingCard = null;
@@ -20,6 +20,7 @@ public class InputManager : MonoBehaviour
 	private void Start()
 	{
 		mainCam = Camera.main;
+
 		GameObject circleObj = new GameObject("DragRadiusVisual");
 		radiusCircle = circleObj.AddComponent<LineRenderer>();
 		radiusCircle.startWidth = 0.2f;
@@ -28,8 +29,8 @@ public class InputManager : MonoBehaviour
 		radiusCircle.loop = true;
 		radiusCircle.enabled = false;
 
-		// Прячем крестик на старте, если он уже на сцене
-		if (invalidPlacementIcon != null) invalidPlacementIcon.SetActive(false);
+		if (invalidPlacementIcon != null)
+			invalidPlacementIcon.SetActive(false);
 	}
 
 	public void StartDragging(CardData card)
@@ -48,38 +49,17 @@ public class InputManager : MonoBehaviour
 			float radius = GetCardRadius(draggingCard);
 			DrawRadiusCircle(hit.point, radius);
 
-			bool isUI = screenPos.y < Screen.height * 0.25f;
-			bool isBuilding = hit.collider.CompareTag("Building");
-			bool canPlace = !isUI;
+			bool canPlace = CanPlaceCardAtScreenPoint(draggingCard, screenPos, hit);
 
-			// --- ЛОГИКА РАЗРЕШЕНИЙ ---
-			if (draggingCard.cardType == CardManager.CardType.Sniper)
-			{
-				if (!isBuilding) canPlace = false; // Снайпер ТОЛЬКО на здания
-			}
-			else if (draggingCard.cardType == CardManager.CardType.Bomb)
-			{
-				// Бомбу можно кидать куда угодно (здания она ломает)
-			}
-			else
-			{
-				if (isBuilding) canPlace = false; // Всех остальных (Солдат, Машина и тд) на здания НЕЛЬЗЯ
-			}
-
-			// --- УПРАВЛЕНИЕ ВИЗУАЛОМ (КРУГ И КРЕСТИК) ---
 			if (!canPlace)
 			{
 				radiusCircle.startColor = new Color(1, 0, 0, 0.5f);
 				radiusCircle.endColor = new Color(1, 0, 0, 0.5f);
 
-				// Показываем крестик чуть выше точки касания
 				if (invalidPlacementIcon != null)
 				{
 					invalidPlacementIcon.SetActive(true);
-					// Приподнимаем на 1 метр, чтобы не проваливался в текстуру крыши
 					invalidPlacementIcon.transform.position = hit.point + Vector3.up * 1.5f;
-
-					// Поворачиваем крестик лицом к камере (чтобы всегда было видно)
 					invalidPlacementIcon.transform.forward = mainCam.transform.forward;
 				}
 			}
@@ -88,7 +68,8 @@ public class InputManager : MonoBehaviour
 				radiusCircle.startColor = new Color(0, 1, 0, 0.5f);
 				radiusCircle.endColor = new Color(0, 1, 0, 0.5f);
 
-				if (invalidPlacementIcon != null) invalidPlacementIcon.SetActive(false);
+				if (invalidPlacementIcon != null)
+					invalidPlacementIcon.SetActive(false);
 			}
 		}
 	}
@@ -99,21 +80,23 @@ public class InputManager : MonoBehaviour
 
 		isDragging = false;
 		radiusCircle.enabled = false;
-		if (invalidPlacementIcon != null) invalidPlacementIcon.SetActive(false); // Прячем крестик
+
+		if (invalidPlacementIcon != null)
+			invalidPlacementIcon.SetActive(false);
 
 		CardData cardToPlay = draggingCard;
 		draggingCard = null;
 
-		if (Input.mousePosition.y < Screen.height * 0.25f) return false;
+		if (cardToPlay == null) return false;
+
+		if (Input.mousePosition.y < Screen.height * 0.25f)
+			return false;
 
 		Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
 		if (Physics.Raycast(ray, out RaycastHit hit))
 		{
-			bool isBuilding = hit.collider.CompareTag("Building");
-
-			// Жесткая проверка перед спавном (дублируем логику из Update)
-			if (cardToPlay.cardType == CardManager.CardType.Sniper && !isBuilding) return false;
-			if (cardToPlay.cardType != CardManager.CardType.Bomb && cardToPlay.cardType != CardManager.CardType.Sniper && isBuilding) return false;
+			if (!CanPlaceCardAtScreenPoint(cardToPlay, Input.mousePosition, hit))
+				return false;
 
 			ExecuteCardLogic(cardToPlay, hit.point);
 
@@ -121,15 +104,43 @@ public class InputManager : MonoBehaviour
 			{
 				GameManager.Instance.StartGame();
 			}
+
 			return true;
 		}
+
 		return false;
+	}
+
+	private bool CanPlaceCardAtScreenPoint(CardData card, Vector2 screenPos, RaycastHit hit)
+	{
+		if (card == null) return false;
+
+		bool isUI = screenPos.y < Screen.height * 0.25f;
+		if (isUI) return false;
+
+		bool isBuilding = hit.collider.CompareTag("Building");
+
+		switch (card.cardType)
+		{
+			case CardManager.CardType.Sniper:
+				return isBuilding; // только на здания
+
+			case CardManager.CardType.Bomb:
+				return true; // можно куда угодно
+
+			case CardManager.CardType.Bait:
+				return true; // можно и на дорогу, и на здание
+
+			default:
+				return !isBuilding; // остальные только не на здания
+		}
 	}
 
 	private void DrawRadiusCircle(Vector3 center, float radius)
 	{
 		radiusCircle.enabled = true;
 		radiusCircle.positionCount = 32;
+
 		float angle = 0f;
 		for (int i = 0; i < 32; i++)
 		{
@@ -159,9 +170,11 @@ public class InputManager : MonoBehaviour
 				case CardManager.CardType.Soldier: return 12f;
 				case CardManager.CardType.Sniper: return 25f;
 				case CardManager.CardType.Helicopter: return 12f;
+				case CardManager.CardType.Bait: return 15f;
 				default: return 5f;
 			}
 		}
+
 		return radius;
 	}
 
@@ -170,24 +183,34 @@ public class InputManager : MonoBehaviour
 		if (card.cardPrefab == null) return;
 
 		GameObject spawnedObject = null;
+
 		switch (card.cardType)
 		{
 			case CardManager.CardType.Helicopter:
 				spawnedObject = Instantiate(card.cardPrefab);
 				spawnedObject.GetComponent<HelicopterController>().Launch(pos);
 				break;
+
 			case CardManager.CardType.Bomb:
 				spawnedObject = Instantiate(card.cardPrefab);
 				spawnedObject.GetComponent<Bomb>().Launch(pos);
 				break;
+
+			case CardManager.CardType.Bait:
+				spawnedObject = Instantiate(card.cardPrefab);
+				spawnedObject.GetComponent<Bait>().Launch(pos);
+				break;
+
 			case CardManager.CardType.Car:
 				spawnedObject = Instantiate(card.cardPrefab);
 				spawnedObject.GetComponent<CarController>().Launch(pos);
 				break;
+
 			case CardManager.CardType.CombatHelicopter:
 				spawnedObject = Instantiate(card.cardPrefab);
 				spawnedObject.SendMessage("Launch", pos, SendMessageOptions.DontRequireReceiver);
 				break;
+
 			case CardManager.CardType.Soldier:
 				int currentLevel = 1;
 				if (PlayerProfile.Instance != null)
@@ -195,14 +218,20 @@ public class InputManager : MonoBehaviour
 					var progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == card.name);
 					if (progress != null) currentLevel = progress.currentLevel;
 				}
+
 				int count = (int)card.GetCalculatedStat(StatType.Count, currentLevel);
 				if (count <= 0) count = 1;
+
 				for (int i = 0; i < count; i++)
 				{
-					Vector3 offset = count > 1 ? new Vector3(Random.Range(-1.2f, 1.2f), 0, Random.Range(-1.2f, 1.2f)) : Vector3.zero;
+					Vector3 offset = count > 1
+						? new Vector3(Random.Range(-1.2f, 1.2f), 0, Random.Range(-1.2f, 1.2f))
+						: Vector3.zero;
+
 					Instantiate(card.cardPrefab, pos + offset, Quaternion.identity);
 				}
 				break;
+
 			default:
 				Instantiate(card.cardPrefab, pos, Quaternion.identity);
 				break;

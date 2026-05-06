@@ -2,6 +2,7 @@
 using UnityEngine.AI;
 using System.Collections;
 using System.Collections.Generic;
+using DG.Tweening;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class Zombie : MonoBehaviour
@@ -10,7 +11,7 @@ public class Zombie : MonoBehaviour
 
 	[Header("Настройки")]
 	public int maxHealth = 100;
-	public float detectRadius = 10f; // теперь не ограничивает поиск жёстко, оставлен для совместимости
+	public float detectRadius = 10f;
 	public float attackDistance = 1.4f;
 	public float attackCooldown = 1.0f;
 	public float moveSpeed = 2.8f;
@@ -22,6 +23,16 @@ public class Zombie : MonoBehaviour
 	[Header("Хаос")]
 	public ChaosSettings chaosSettings;
 
+	[Header("Поведение у приманки")]
+	[Tooltip("Радиус, в котором зомби слегка расходятся вокруг точки приманки")]
+	public float crowdRadius = 0.8f;
+
+	[Tooltip("Сила дрожания зомби вокруг приманки")]
+	public float crowdShakeStrength = 0.12f;
+
+	[Tooltip("Длительность одного цикла дрожания")]
+	public float crowdShakeDuration = 0.35f;
+
 	protected NavMeshAgent agent;
 	protected int currentHealth;
 	protected bool isDead = false;
@@ -30,6 +41,10 @@ public class Zombie : MonoBehaviour
 
 	private bool isDistracted = false;
 	private float nextChaosCheckTime = 0f;
+
+	private Bait currentBait = null;
+	private Vector3 currentBaitDestination;
+	private Tween crowdShakeTween;
 
 	protected virtual void Awake()
 	{
@@ -45,6 +60,7 @@ public class Zombie : MonoBehaviour
 	protected virtual void OnDisable()
 	{
 		AllZombies.Remove(this);
+		KillCrowdTween();
 	}
 
 	protected virtual void Start()
@@ -82,18 +98,18 @@ public class Zombie : MonoBehaviour
 				agent.isStopped = false;
 			}
 
-			// Если зомби сейчас "затупил", просто пропускаем итерацию
 			if (isDistracted)
 			{
 				yield return wait;
 				continue;
 			}
 
-			Transform target = FindClosestVictim();
+			Transform target;
+			Vector3? overrideDestination;
+			FindTargetWithBaitPriority(out target, out overrideDestination);
 
 			if (target != null)
 			{
-				// Редкая потеря цели
 				if (ShouldLoseTarget())
 				{
 					StartCoroutine(LoseTargetRoutine());
@@ -101,26 +117,37 @@ public class Zombie : MonoBehaviour
 					continue;
 				}
 
-				float dist = Vector3.Distance(transform.position, target.position);
+				Vector3 targetPos = overrideDestination ?? target.position;
+				float dist = Vector3.Distance(transform.position, targetPos);
 
 				if (dist > attackDistance)
 				{
 					if (agent != null && agent.enabled && agent.isOnNavMesh)
 					{
-						agent.SetDestination(target.position);
+						agent.SetDestination(targetPos);
 					}
+
+					StopCrowdBehaviorIfAny();
 				}
 				else
 				{
-					if (!isAttacking)
+					if (currentBait != null)
 					{
-						StartCoroutine(AttackRoutine(target));
+						StartCrowdBehaviorAroundBait();
+					}
+					else
+					{
+						if (!isAttacking)
+						{
+							StartCoroutine(AttackRoutine(target));
+						}
 					}
 				}
 			}
 			else
 			{
-				// Если никого не нашли, просто сбрасываем путь
+				StopCrowdBehaviorIfAny();
+
 				if (agent != null && agent.enabled && agent.isOnNavMesh)
 				{
 					agent.ResetPath();
@@ -138,7 +165,6 @@ public class Zombie : MonoBehaviour
 		if (Time.time < nextChaosCheckTime) return false;
 
 		nextChaosCheckTime = Time.time + chaosSettings.zombieLoseTargetCheckInterval;
-
 		return Random.value < chaosSettings.zombieLoseTargetChance;
 	}
 
@@ -151,16 +177,52 @@ public class Zombie : MonoBehaviour
 			agent.ResetPath();
 		}
 
-		float duration = 0.6f;
-
-		if (chaosSettings != null)
-		{
-			duration = chaosSettings.zombieLoseTargetDuration;
-		}
+		float duration = chaosSettings != null
+			? chaosSettings.zombieLoseTargetDuration
+			: 0.6f;
 
 		yield return new WaitForSeconds(duration);
-
 		isDistracted = false;
+	}
+
+	protected virtual void FindTargetWithBaitPriority(out Transform target, out Vector3? overrideDestination)
+	{
+		target = null;
+		overrideDestination = null;
+
+		currentBait = null;
+		float bestDist = float.MaxValue;
+
+		foreach (var bait in Bait.AllBaits)
+		{
+			if (bait == null) continue;
+
+			Vector3 baitTargetPoint = bait.hasValidAttractPoint ? bait.attractPoint : bait.transform.position;
+			float dist = Vector3.Distance(transform.position, baitTargetPoint);
+
+			if (dist <= bait.attractRadius && dist < bestDist)
+			{
+				bestDist = dist;
+				currentBait = bait;
+			}
+		}
+
+		if (currentBait != null)
+		{
+			Vector3 baitTargetPoint = currentBait.hasValidAttractPoint ? currentBait.attractPoint : currentBait.transform.position;
+
+			Vector2 offset2D = Random.insideUnitCircle * crowdRadius;
+			Vector3 offset = new Vector3(offset2D.x, 0f, offset2D.y);
+			currentBaitDestination = baitTargetPoint + offset;
+
+			target = currentBait.transform;
+			overrideDestination = currentBaitDestination;
+			return;
+		}
+
+		currentBaitDestination = Vector3.zero;
+		target = FindClosestVictim();
+		overrideDestination = null;
 	}
 
 	protected virtual Transform FindClosestVictim()
@@ -270,6 +332,64 @@ public class Zombie : MonoBehaviour
 		}
 	}
 
+	public virtual void SetBaitTarget(Bait bait)
+	{
+		if (bait == null) return;
+
+		currentBait = bait;
+
+		Vector3 baitTargetPoint = bait.hasValidAttractPoint ? bait.attractPoint : bait.transform.position;
+
+		Vector2 offset2D = Random.insideUnitCircle * crowdRadius;
+		Vector3 offset = new Vector3(offset2D.x, 0f, offset2D.y);
+		currentBaitDestination = baitTargetPoint + offset;
+
+		if (agent != null && agent.enabled && agent.isOnNavMesh)
+		{
+			agent.SetDestination(currentBaitDestination);
+		}
+	}
+
+	private void StartCrowdBehaviorAroundBait()
+	{
+		if (currentBait == null || agent == null || !agent.enabled || !agent.isOnNavMesh)
+		{
+			KillCrowdTween();
+			return;
+		}
+
+		agent.SetDestination(currentBaitDestination);
+
+		if (crowdShakeTween == null || !crowdShakeTween.IsActive())
+		{
+			crowdShakeTween = transform
+				.DOShakePosition(
+					crowdShakeDuration,
+					strength: crowdShakeStrength,
+					vibrato: 10,
+					randomness: 100f,
+					snapping: false,
+					fadeOut: true)
+				.SetLoops(-1, LoopType.Restart)
+				.SetLink(gameObject);
+		}
+	}
+
+	private void StopCrowdBehaviorIfAny()
+	{
+		currentBait = null;
+		KillCrowdTween();
+	}
+
+	private void KillCrowdTween()
+	{
+		if (crowdShakeTween != null && crowdShakeTween.IsActive())
+		{
+			crowdShakeTween.Kill();
+			crowdShakeTween = null;
+		}
+	}
+
 	public virtual void TakeDamage(int damageTaken)
 	{
 		if (isDead) return;
@@ -290,6 +410,8 @@ public class Zombie : MonoBehaviour
 		{
 			StopCoroutine(brainRoutine);
 		}
+
+		KillCrowdTween();
 
 		if (agent != null && agent.enabled)
 		{
