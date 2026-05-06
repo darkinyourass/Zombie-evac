@@ -1,13 +1,12 @@
 using UnityEngine;
 
 // [ГДЕ ВИСИТ]: На пустом объекте (InputManager) на боевой сцене.
-// [НАСТРОЙКИ]: В инспекторе появится поле Invalid Placement Icon. Туда нужно закинуть префаб крестика.
+// [НАСТРОЙКИ]: В инспекторе назначить Invalid Placement Icon (красный крестик).
 public class InputManager : MonoBehaviour
 {
 	public static InputManager Instance;
 
 	[Header("Визуал")]
-	[Tooltip("Объект с красным крестиком (SpriteRenderer), который появляется при ошибке")]
 	public GameObject invalidPlacementIcon;
 
 	private Camera mainCam;
@@ -15,12 +14,18 @@ public class InputManager : MonoBehaviour
 	private bool isDragging;
 	private LineRenderer radiusCircle;
 
+	// Подсветка здания линией
+	private LineRenderer buildingOutline;
+	private GameObject outlinedBuilding;
+	private Vector3[] buildingCorners = new Vector3[4]; // 0..3 - углы контура
+
 	private void Awake() => Instance = this;
 
 	private void Start()
 	{
 		mainCam = Camera.main;
 
+		// Радиус карт
 		GameObject circleObj = new GameObject("DragRadiusVisual");
 		radiusCircle = circleObj.AddComponent<LineRenderer>();
 		radiusCircle.startWidth = 0.2f;
@@ -28,6 +33,19 @@ public class InputManager : MonoBehaviour
 		radiusCircle.material = new Material(Shader.Find("Sprites/Default"));
 		radiusCircle.loop = true;
 		radiusCircle.enabled = false;
+
+		// Контур здания
+		GameObject outlineObj = new GameObject("BuildingOutline");
+		buildingOutline = outlineObj.AddComponent<LineRenderer>();
+		buildingOutline.startWidth = 0.15f;
+		buildingOutline.endWidth = 0.15f;
+		buildingOutline.material = new Material(Shader.Find("Sprites/Default"));
+		buildingOutline.loop = true;
+		buildingOutline.positionCount = 5;
+		buildingOutline.startColor = new Color(1f, 0.9f, 0.3f, 0.9f);
+		buildingOutline.endColor = new Color(1f, 0.9f, 0.3f, 0.9f);
+		buildingOutline.enabled = false;
+		buildingOutline.sortingOrder = 100;
 
 		if (invalidPlacementIcon != null)
 			invalidPlacementIcon.SetActive(false);
@@ -51,6 +69,7 @@ public class InputManager : MonoBehaviour
 
 			bool canPlace = CanPlaceCardAtScreenPoint(draggingCard, screenPos, hit);
 
+			// Визуал валидности
 			if (!canPlace)
 			{
 				radiusCircle.startColor = new Color(1, 0, 0, 0.5f);
@@ -71,6 +90,12 @@ public class InputManager : MonoBehaviour
 				if (invalidPlacementIcon != null)
 					invalidPlacementIcon.SetActive(false);
 			}
+
+			HandleSniperOutline(hit, canPlace);
+		}
+		else
+		{
+			ClearBuildingOutline();
 		}
 	}
 
@@ -87,29 +112,104 @@ public class InputManager : MonoBehaviour
 		CardData cardToPlay = draggingCard;
 		draggingCard = null;
 
-		if (cardToPlay == null) return false;
+		if (cardToPlay == null) { ClearBuildingOutline(); return false; }
 
 		if (Input.mousePosition.y < Screen.height * 0.25f)
+		{
+			ClearBuildingOutline();
 			return false;
+		}
 
 		Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
 		if (Physics.Raycast(ray, out RaycastHit hit))
 		{
 			if (!CanPlaceCardAtScreenPoint(cardToPlay, Input.mousePosition, hit))
+			{
+				ClearBuildingOutline();
 				return false;
+			}
 
-			ExecuteCardLogic(cardToPlay, hit.point);
+			ExecuteCardLogic(cardToPlay, hit);
+			ClearBuildingOutline();
 
 			if (GameManager.Instance.State == GameManager.GameState.Planning)
-			{
 				GameManager.Instance.StartGame();
-			}
 
 			return true;
 		}
 
+		ClearBuildingOutline();
 		return false;
 	}
+
+	// -------- Подсветка здания и запоминание углов --------
+
+	private void HandleSniperOutline(RaycastHit hit, bool canPlace)
+	{
+		if (draggingCard == null || draggingCard.cardType != CardManager.CardType.Sniper)
+		{
+			ClearBuildingOutline();
+			return;
+		}
+
+		if (hit.collider != null && hit.collider.CompareTag("Building") && canPlace)
+		{
+			GameObject building = hit.collider.gameObject;
+			if (outlinedBuilding != building)
+			{
+				outlinedBuilding = building;
+				DrawBuildingOutline(outlinedBuilding);
+			}
+		}
+		else
+		{
+			ClearBuildingOutline();
+		}
+	}
+
+	private void DrawBuildingOutline(GameObject building)
+	{
+		if (building == null)
+		{
+			ClearBuildingOutline();
+			return;
+		}
+
+		BoxCollider box = building.GetComponent<BoxCollider>();
+		if (box == null)
+		{
+			ClearBuildingOutline();
+			return;
+		}
+
+		Bounds b = box.bounds;
+		float y = b.max.y + 0.05f;
+
+		Vector3 p0 = new Vector3(b.min.x, y, b.min.z);
+		Vector3 p1 = new Vector3(b.max.x, y, b.min.z);
+		Vector3 p2 = new Vector3(b.max.x, y, b.max.z);
+		Vector3 p3 = new Vector3(b.min.x, y, b.max.z);
+
+		buildingCorners[0] = p0;
+		buildingCorners[1] = p1;
+		buildingCorners[2] = p2;
+		buildingCorners[3] = p3;
+
+		buildingOutline.enabled = true;
+		buildingOutline.SetPosition(0, p0);
+		buildingOutline.SetPosition(1, p1);
+		buildingOutline.SetPosition(2, p2);
+		buildingOutline.SetPosition(3, p3);
+		buildingOutline.SetPosition(4, p0);
+	}
+
+	private void ClearBuildingOutline()
+	{
+		buildingOutline.enabled = false;
+		outlinedBuilding = null;
+	}
+
+	// -------- Валидация и радиус --------
 
 	private bool CanPlaceCardAtScreenPoint(CardData card, Vector2 screenPos, RaycastHit hit)
 	{
@@ -123,16 +223,16 @@ public class InputManager : MonoBehaviour
 		switch (card.cardType)
 		{
 			case CardManager.CardType.Sniper:
-				return isBuilding; // только на здания
+				return isBuilding;
 
 			case CardManager.CardType.Bomb:
-				return true; // можно куда угодно
+				return true;
 
 			case CardManager.CardType.Bait:
-				return true; // можно и на дорогу, и на здание
+				return true;
 
 			default:
-				return !isBuilding; // остальные только не на здания
+				return !isBuilding;
 		}
 	}
 
@@ -147,7 +247,7 @@ public class InputManager : MonoBehaviour
 			float x = Mathf.Sin(Mathf.Deg2Rad * angle) * radius;
 			float z = Mathf.Cos(Mathf.Deg2Rad * angle) * radius;
 			radiusCircle.SetPosition(i, center + new Vector3(x, 0.2f, z));
-			angle += (360f / 32f);
+			angle += 360f / 32f;
 		}
 	}
 
@@ -178,37 +278,68 @@ public class InputManager : MonoBehaviour
 		return radius;
 	}
 
-	private void ExecuteCardLogic(CardData card, Vector3 pos)
+	// -------- Спавн карт --------
+
+	private void ExecuteCardLogic(CardData card, RaycastHit hit)
 	{
 		if (card.cardPrefab == null) return;
 
+		Vector3 spawnPos = hit.point;
 		GameObject spawnedObject = null;
+
+		if (card.cardType == CardManager.CardType.Sniper && outlinedBuilding != null)
+		{
+			// центр контура = среднее 4 углов
+			Vector3 center = (buildingCorners[0] + buildingCorners[1] + buildingCorners[2] + buildingCorners[3]) / 4f;
+			spawnPos = center;
+		}
+		else if (card.cardType == CardManager.CardType.Sniper && hit.collider != null && hit.collider.CompareTag("Building"))
+		{
+			// fallback, если по какой-то причине outline не установлен
+			BoxCollider box = hit.collider.GetComponent<BoxCollider>();
+			if (box != null)
+			{
+				Bounds b = box.bounds;
+				spawnPos = new Vector3(b.center.x, b.max.y + 0.05f, b.center.z);
+			}
+			else
+			{
+				spawnPos = hit.collider.bounds.center;
+			}
+		}
 
 		switch (card.cardType)
 		{
 			case CardManager.CardType.Helicopter:
 				spawnedObject = Instantiate(card.cardPrefab);
-				spawnedObject.GetComponent<HelicopterController>().Launch(pos);
+				spawnedObject.GetComponent<HelicopterController>().Launch(spawnPos);
 				break;
 
 			case CardManager.CardType.Bomb:
 				spawnedObject = Instantiate(card.cardPrefab);
-				spawnedObject.GetComponent<Bomb>().Launch(pos);
+				spawnedObject.GetComponent<Bomb>().Launch(spawnPos);
 				break;
 
 			case CardManager.CardType.Bait:
 				spawnedObject = Instantiate(card.cardPrefab);
-				spawnedObject.GetComponent<Bait>().Launch(pos);
+				spawnedObject.GetComponent<Bait>().Launch(spawnPos);
 				break;
 
 			case CardManager.CardType.Car:
 				spawnedObject = Instantiate(card.cardPrefab);
-				spawnedObject.GetComponent<CarController>().Launch(pos);
+				spawnedObject.GetComponent<CarController>().Launch(spawnPos);
 				break;
 
 			case CardManager.CardType.CombatHelicopter:
 				spawnedObject = Instantiate(card.cardPrefab);
-				spawnedObject.SendMessage("Launch", pos, SendMessageOptions.DontRequireReceiver);
+				spawnedObject.SendMessage("Launch", spawnPos, SendMessageOptions.DontRequireReceiver);
+				break;
+
+			case CardManager.CardType.Sniper:
+				spawnedObject = Instantiate(card.cardPrefab, spawnPos, Quaternion.identity);
+				Sniper sniper = spawnedObject.GetComponent<Sniper>();
+				if (sniper != null)
+					sniper.Init(hit.collider != null ? hit.collider.transform : null);
 				break;
 
 			case CardManager.CardType.Soldier:
@@ -228,12 +359,12 @@ public class InputManager : MonoBehaviour
 						? new Vector3(Random.Range(-1.2f, 1.2f), 0, Random.Range(-1.2f, 1.2f))
 						: Vector3.zero;
 
-					Instantiate(card.cardPrefab, pos + offset, Quaternion.identity);
+					Instantiate(card.cardPrefab, spawnPos + offset, Quaternion.identity);
 				}
 				break;
 
 			default:
-				Instantiate(card.cardPrefab, pos, Quaternion.identity);
+				Instantiate(card.cardPrefab, spawnPos, Quaternion.identity);
 				break;
 		}
 	}

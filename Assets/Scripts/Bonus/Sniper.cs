@@ -1,17 +1,18 @@
 using UnityEngine;
 using System.Collections;
 
-// [ГДЕ ВИСИТ]: На префабе Снайпера (который спавнится только на крышах).
-// [НАСТРОЙКИ]: В инспекторе нужно назначить только myCardData.
+// [ГДЕ ВИСИТ]: На префабе Снайпера (спавнится только на зданиях).
+// [НАСТРОЙКИ]: В инспекторе нужно назначить myCardData.
 public class Sniper : MonoBehaviour
 {
 	[Header("Связь с карточкой")]
 	public CardData myCardData;
 
 	[Header("Технические настройки")]
-	public float aimDuration = 1.5f; // Сколько секунд сводится прицел
+	public float aimDuration = 1.5f;
+	public float muzzleHeight = 1.5f;
+	public float targetHeight = 1.0f;
 
-	// СТАТЫ ИЗ CARD DATA
 	private float cooldownDelay;
 	private float attackRange;
 	private int damage;
@@ -19,13 +20,19 @@ public class Sniper : MonoBehaviour
 
 	private bool isExtracting = false;
 	private LineRenderer laserLine;
+	private Transform myBuilding;
+
+	public void Init(Transform buildingTransform)
+	{
+		myBuilding = buildingTransform;
+	}
 
 	private void Awake()
 	{
-		// Инициализируем графику тут, чтобы избежать NullReference
 		laserLine = gameObject.AddComponent<LineRenderer>();
 		laserLine.material = new Material(Shader.Find("Sprites/Default"));
 		laserLine.enabled = false;
+		laserLine.positionCount = 2;
 	}
 
 	private void Start()
@@ -43,28 +50,37 @@ public class Sniper : MonoBehaviour
 		}
 		else
 		{
-			cooldownDelay = 2.0f; attackRange = 25f; damage = 100; lifespan = 15f;
+			cooldownDelay = 2.0f;
+			attackRange = 25f;
+			damage = 100;
+			lifespan = 15f;
 		}
+
+		if (cooldownDelay <= 0f) cooldownDelay = 2f;
+		if (attackRange <= 0f) attackRange = 25f;
+		if (damage <= 0) damage = 100;
+		if (lifespan <= 0f) lifespan = 15f;
 
 		StartCoroutine(SniperRoutine());
 	}
 
 	private void Update()
 	{
-		if (isExtracting) return; // Убрали дерганый улет вверх
+		if (isExtracting) return;
 
 		lifespan -= Time.deltaTime;
-		if (lifespan <= 0) StartCoroutine(ExtractRoutine());
+		if (lifespan <= 0f)
+			StartCoroutine(ExtractRoutine());
 	}
 
-	// ФИКС №1: Красивый тактический уход (как у Солдата)
 	private IEnumerator ExtractRoutine()
 	{
 		isExtracting = true;
 		laserLine.enabled = false;
 
-		float t = 0;
+		float t = 0f;
 		Vector3 startScale = transform.localScale;
+
 		while (t < 1f)
 		{
 			t += Time.deltaTime * 3f;
@@ -80,13 +96,13 @@ public class Sniper : MonoBehaviour
 		while (!isExtracting)
 		{
 			Zombie target = FindTarget();
+
 			if (target != null)
 			{
 				laserLine.enabled = true;
 				float aimTimer = 0f;
 				bool targetLost = false;
 
-				// --- СОЧНЫЙ ПРИЦЕЛ (JUICE) ---
 				while (aimTimer < aimDuration)
 				{
 					if (target == null || !HasLineOfSight(target.transform))
@@ -95,21 +111,18 @@ public class Sniper : MonoBehaviour
 						break;
 					}
 
-					// Считаем прогресс от 0 до 1
 					float progress = aimTimer / aimDuration;
 
-					// Лазер становится толще (от 0.02 до 0.06)
 					float currentWidth = Mathf.Lerp(0.02f, 0.06f, progress);
 					laserLine.startWidth = currentWidth;
 					laserLine.endWidth = currentWidth;
 
-					// Лазер становится ярче (от прозрачного к кроваво-красному)
-					Color currentColor = new Color(1, 0, 0, Mathf.Lerp(0.2f, 1f, progress));
+					Color currentColor = new Color(1f, 0f, 0f, Mathf.Lerp(0.2f, 1f, 1f));
 					laserLine.startColor = currentColor;
 					laserLine.endColor = currentColor;
 
-					laserLine.SetPosition(0, transform.position + Vector3.up * 1.5f);
-					laserLine.SetPosition(1, target.transform.position + Vector3.up);
+					laserLine.SetPosition(0, transform.position + Vector3.up * muzzleHeight);
+					laserLine.SetPosition(1, target.transform.position + Vector3.up * targetHeight);
 
 					aimTimer += Time.deltaTime;
 					yield return null;
@@ -117,62 +130,83 @@ public class Sniper : MonoBehaviour
 
 				if (!targetLost && target != null)
 				{
-					// --- ВЫСТРЕЛ (ВСПЫШКА) ---
 					laserLine.startWidth = 0.15f;
 					laserLine.endWidth = 0.05f;
-					laserLine.startColor = Color.yellow; // Желтая вспышка от дула
-					laserLine.endColor = new Color(1, 0.5f, 0); // Оранжевый на конце
+					laserLine.startColor = Color.yellow;
+					laserLine.endColor = new Color(1f, 0.5f, 0f);
 
 					target.TakeDamage(damage);
 
-					// Держим вспышку на экране долю секунды, чтобы глаз успел ее заметить
 					yield return new WaitForSeconds(0.15f);
 
 					laserLine.enabled = false;
-					yield return new WaitForSeconds(cooldownDelay); // Полная перезарядка
+					yield return new WaitForSeconds(cooldownDelay);
 				}
 				else
 				{
-					// ФИКС №2: Цель спряталась - ищем новую быстро, без долгой перезарядки!
 					laserLine.enabled = false;
 					yield return new WaitForSeconds(0.2f);
 				}
 			}
 			else
 			{
-				yield return new WaitForSeconds(0.5f); // Отдыхаем, пока нет целей
+				laserLine.enabled = false;
+				yield return new WaitForSeconds(0.35f);
 			}
 		}
 	}
 
 	private Zombie FindTarget()
 	{
-		// Для снайпера в MVP "ближайший" подходит идеально, 
-		// но если захотим балансить - можно будет искать зомби с MAX(хп)
-		Zombie best = null; float minD = attackRange;
+		Zombie best = null;
+		float bestProgress = float.NegativeInfinity;
+
 		foreach (var z in Zombie.AllZombies)
 		{
 			if (z == null) continue;
-			float d = Vector3.Distance(transform.position, z.transform.position);
 
-			if (d < minD && HasLineOfSight(z.transform))
+			float d = Vector3.Distance(transform.position, z.transform.position);
+			if (d > attackRange) continue;
+			if (!HasLineOfSight(z.transform)) continue;
+
+			float progressScore = z.transform.position.z;
+			if (progressScore > bestProgress)
 			{
-				minD = d; best = z;
+				bestProgress = progressScore;
+				best = z;
 			}
 		}
+
 		return best;
 	}
 
-	// ФИКС №3: Пробитие стен исправлено на Raycast (как у Солдата)
 	private bool HasLineOfSight(Transform target)
 	{
-		Vector3 start = transform.position + Vector3.up * 1.5f;
-		Vector3 dir = (target.position + Vector3.up * 1.0f) - start;
+		Vector3 start = transform.position + Vector3.up * muzzleHeight;
+		Vector3 end = target.position + Vector3.up * targetHeight;
+		Vector3 dir = end - start;
+		float dist = dir.magnitude;
 
-		if (Physics.Raycast(start, dir.normalized, out RaycastHit hit, dir.magnitude))
+		if (dist <= 0.01f) return true;
+
+		if (Physics.Raycast(start, dir.normalized, out RaycastHit hit, dist))
 		{
-			if (hit.collider.CompareTag("Building")) return false;
+			Zombie hitZombie = hit.collider.GetComponent<Zombie>();
+			if (hitZombie != null && hitZombie.transform == target)
+				return true;
+
+			if (hit.collider.CompareTag("Building"))
+			{
+				if (myBuilding != null && hit.collider.transform == myBuilding)
+					return true;
+
+				return false;
+			}
+
+			if (hit.collider.transform != target)
+				return false;
 		}
+
 		return true;
 	}
 }
