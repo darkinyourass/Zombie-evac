@@ -112,8 +112,25 @@ public class InputManager : MonoBehaviour
 		CardData cardToPlay = draggingCard;
 		draggingCard = null;
 
-		if (cardToPlay == null) { ClearBuildingOutline(); return false; }
+		if (cardToPlay == null)
+		{
+			ClearBuildingOutline();
+			return false;
+		}
 
+		// дл€ Sniper не делаем повторный Raycast Ч используем только outlinedBuilding
+		if (cardToPlay.cardType == CardManager.CardType.Sniper)
+		{
+			bool placed = ExecuteSniperLogic(cardToPlay);
+			ClearBuildingOutline();
+
+			if (placed && GameManager.Instance.State == GameManager.GameState.Planning)
+				GameManager.Instance.StartGame();
+
+			return placed;
+		}
+
+		// дл€ остальных карт Ч как раньше
 		if (Input.mousePosition.y < Screen.height * 0.25f)
 		{
 			ClearBuildingOutline();
@@ -278,7 +295,25 @@ public class InputManager : MonoBehaviour
 		return radius;
 	}
 
-	// -------- —павн карт --------
+	// -------- Ћогика спавна Sniper --------
+
+	private bool ExecuteSniperLogic(CardData card)
+	{
+		// если дом не подсвечен Ч не ставим снайпера
+		if (outlinedBuilding == null) return false;
+
+		// центр подсвеченного пр€моугольника
+		Vector3 center = (buildingCorners[0] + buildingCorners[1] + buildingCorners[2] + buildingCorners[3]) / 4f;
+
+		GameObject spawnedObject = Instantiate(card.cardPrefab, center, Quaternion.identity);
+		Sniper sniper = spawnedObject.GetComponent<Sniper>();
+		if (sniper != null)
+			sniper.Init(outlinedBuilding.transform);
+
+		return true;
+	}
+
+	// -------- Ћогика спавна остальных карт --------
 
 	private void ExecuteCardLogic(CardData card, RaycastHit hit)
 	{
@@ -286,27 +321,6 @@ public class InputManager : MonoBehaviour
 
 		Vector3 spawnPos = hit.point;
 		GameObject spawnedObject = null;
-
-		if (card.cardType == CardManager.CardType.Sniper && outlinedBuilding != null)
-		{
-			// центр контура = среднее 4 углов
-			Vector3 center = (buildingCorners[0] + buildingCorners[1] + buildingCorners[2] + buildingCorners[3]) / 4f;
-			spawnPos = center;
-		}
-		else if (card.cardType == CardManager.CardType.Sniper && hit.collider != null && hit.collider.CompareTag("Building"))
-		{
-			// fallback, если по какой-то причине outline не установлен
-			BoxCollider box = hit.collider.GetComponent<BoxCollider>();
-			if (box != null)
-			{
-				Bounds b = box.bounds;
-				spawnPos = new Vector3(b.center.x, b.max.y + 0.05f, b.center.z);
-			}
-			else
-			{
-				spawnPos = hit.collider.bounds.center;
-			}
-		}
 
 		switch (card.cardType)
 		{
@@ -333,13 +347,6 @@ public class InputManager : MonoBehaviour
 			case CardManager.CardType.CombatHelicopter:
 				spawnedObject = Instantiate(card.cardPrefab);
 				spawnedObject.SendMessage("Launch", spawnPos, SendMessageOptions.DontRequireReceiver);
-				break;
-
-			case CardManager.CardType.Sniper:
-				spawnedObject = Instantiate(card.cardPrefab, spawnPos, Quaternion.identity);
-				Sniper sniper = spawnedObject.GetComponent<Sniper>();
-				if (sniper != null)
-					sniper.Init(hit.collider != null ? hit.collider.transform : null);
 				break;
 
 			case CardManager.CardType.Soldier:

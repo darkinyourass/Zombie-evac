@@ -9,9 +9,14 @@ public class Sniper : MonoBehaviour
 	public CardData myCardData;
 
 	[Header("Технические настройки")]
-	public float aimDuration = 1.5f;
+	public float aimDuration = 1.5f;       // базовое время прицеливания
+	public float firstShotAimFactor = 0.4f; // во сколько раз первый выстрел быстрее (0.4 = 60% быстрее)
 	public float muzzleHeight = 1.5f;
 	public float targetHeight = 1.0f;
+
+	[Header("Пробивание по линии")]
+	public int maxPierceTargets = 3;      // максимум зомбей, которых можно задеть одним выстрелом
+	public float pierceDamageFalloff = 0.5f; // коэффициент урона для каждого следующего (1, 0.5, 0.25 и т.д.)
 
 	private float cooldownDelay;
 	private float attackRange;
@@ -19,6 +24,7 @@ public class Sniper : MonoBehaviour
 	private float lifespan;
 
 	private bool isExtracting = false;
+	private bool isFirstShot = true;
 	private LineRenderer laserLine;
 	private Transform myBuilding;
 
@@ -101,9 +107,15 @@ public class Sniper : MonoBehaviour
 			{
 				laserLine.enabled = true;
 				float aimTimer = 0f;
+
+				// первый выстрел — быстрее
+				float currentAimDuration = isFirstShot
+					? Mathf.Max(aimDuration * firstShotAimFactor, 0.1f)
+					: aimDuration;
+
 				bool targetLost = false;
 
-				while (aimTimer < aimDuration)
+				while (aimTimer < currentAimDuration)
 				{
 					if (target == null || !HasLineOfSight(target.transform))
 					{
@@ -111,13 +123,13 @@ public class Sniper : MonoBehaviour
 						break;
 					}
 
-					float progress = aimTimer / aimDuration;
+					float progress = aimTimer / currentAimDuration;
 
 					float currentWidth = Mathf.Lerp(0.02f, 0.06f, progress);
 					laserLine.startWidth = currentWidth;
 					laserLine.endWidth = currentWidth;
 
-					Color currentColor = new Color(1f, 0f, 0f, Mathf.Lerp(0.2f, 1f, 1f));
+					Color currentColor = new Color(1f, 0f, 0f, Mathf.Lerp(0.2f, 1f, progress));
 					laserLine.startColor = currentColor;
 					laserLine.endColor = currentColor;
 
@@ -130,12 +142,16 @@ public class Sniper : MonoBehaviour
 
 				if (!targetLost && target != null)
 				{
+					// оформление выстрела
 					laserLine.startWidth = 0.15f;
 					laserLine.endWidth = 0.05f;
 					laserLine.startColor = Color.yellow;
 					laserLine.endColor = new Color(1f, 0.5f, 0f);
 
-					target.TakeDamage(damage);
+					// пробиваем несколько целей по линии
+					ApplyPiercingDamage(target);
+
+					isFirstShot = false;
 
 					yield return new WaitForSeconds(0.15f);
 
@@ -156,6 +172,7 @@ public class Sniper : MonoBehaviour
 		}
 	}
 
+	// Находим самую "опасную" цель (дальше всего продвинулась по Z) в радиусе и с LOS
 	private Zombie FindTarget()
 	{
 		Zombie best = null;
@@ -208,5 +225,50 @@ public class Sniper : MonoBehaviour
 		}
 
 		return true;
+	}
+
+	// Пробиваем несколько зомби по линии одного выстрела
+	private void ApplyPiercingDamage(Zombie primaryTarget)
+	{
+		Vector3 start = transform.position + Vector3.up * muzzleHeight;
+		Vector3 end = primaryTarget.transform.position + Vector3.up * targetHeight;
+		Vector3 dir = (end - start).normalized;
+		float dist = Vector3.Distance(start, end);
+
+		// Берём все попадания вдоль луча до основной цели (чтобы не выстреливать дальше неё)
+		RaycastHit[] hits = Physics.RaycastAll(start, dir, dist);
+		// Сортируем по расстоянию от снайпера, чтобы обрабатывать по очереди
+		System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+		int targetsHit = 0;
+		float currentDamage = damage;
+
+		foreach (var hit in hits)
+		{
+			if (targetsHit >= maxPierceTargets) break;
+
+			// блокирующие объекты
+			if (hit.collider.CompareTag("Building") && (myBuilding == null || hit.collider.transform != myBuilding))
+			{
+				break;
+			}
+
+			Zombie z = hit.collider.GetComponent<Zombie>();
+			if (z != null)
+			{
+				z.TakeDamage(Mathf.RoundToInt(currentDamage));
+				targetsHit++;
+
+				currentDamage *= pierceDamageFalloff;
+				if (currentDamage < 1f) break;
+			}
+		}
+
+		// На всякий случай: если RaycastAll не нашёл primaryTarget (например, из-за слоёв),
+		// всё равно гарантируем урон первичной цели.
+		if (targetsHit == 0 && primaryTarget != null)
+		{
+			primaryTarget.TakeDamage(damage);
+		}
 	}
 }
