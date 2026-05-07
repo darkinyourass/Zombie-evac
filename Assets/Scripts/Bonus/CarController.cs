@@ -14,15 +14,19 @@ public class CarController : MonoBehaviour
 	public CardData myCardData;
 
 	[Header("Технические настройки")]
-	public float crushRadius = 2.5f;       // давим зомби под колёсами
-	public float boardingRadius = 1.8f;    // радиус посадки
-	public int boardPerTick = 1;           // сколько людей садится за один "тик"
-	public float dangerRadius = 2.0f;      // если зомби ближе этого — "too hot"
+	public float crushRadius = 2.5f;
+	public float boardingRadius = 1.8f;
+	public int boardPerTick = 1;
+	public float dangerRadius = 2.0f;
+
+	[Header("Посадка")]
+	public float boardingAnimDuration = 0.28f;
+	public float boardingLiftHeight = 0.8f;
 
 	[Header("UI и Визуал")]
-	public TextMeshProUGUI loadText;       // CapacityText (дочерний Canvas на машине)
-	public float textHeight = 2f;          // высота текста над машиной
-	public GameObject hotWarning;          // HotWarningText
+	public TextMeshProUGUI loadText;
+	public float textHeight = 2f;
+	public GameObject hotWarning;
 	public GameObject sirenRingPrefab;
 	public GameObject humanAlertPrefab;
 	public float alertDuration = 2.0f;
@@ -63,7 +67,6 @@ public class CarController : MonoBehaviour
 			moveSpeed = myCardData.GetCalculatedStat(StatType.Speed, currentLevel);
 		}
 
-		// safety net
 		if (maxCapacity <= 0) maxCapacity = 5;
 		if (loadTime <= 0) loadTime = 10f;
 		if (sirenRadius <= 0) sirenRadius = 5f;
@@ -78,20 +81,19 @@ public class CarController : MonoBehaviour
 		{
 			loadText.gameObject.SetActive(true);
 			loadText.text = "";
-			// ставим текст над машиной
 			loadText.transform.position = transform.position + Vector3.up * textHeight;
-			// фиксированный поворот под топ-даун камеру
 			loadText.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
 		}
 	}
 
 	public void Launch(Vector3 targetPos)
 	{
-		// перед каждым рейсом чистим состояние
 		currentLoad = 0;
 		loadedHumanCount = 0;
 		loadedScientistCount = 0;
 		isTooHot = false;
+		sirenFired = false;
+		loadedUnits.Clear();
 
 		if (hotWarning != null) hotWarning.SetActive(false);
 
@@ -131,14 +133,12 @@ public class CarController : MonoBehaviour
 
 	private void Update()
 	{
-		// держим текст над машиной с фиксированным поворотом
 		if (loadText != null)
 		{
 			loadText.transform.position = transform.position + Vector3.up * textHeight;
 			loadText.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
 		}
 
-		// давим зомби под колёсами
 		if (agent.velocity.magnitude > 1f)
 		{
 			Collider[] hits = Physics.OverlapSphere(transform.position, crushRadius);
@@ -152,7 +152,6 @@ public class CarController : MonoBehaviour
 
 	private IEnumerator CarRoutine()
 	{
-		// подъезжаем к точке
 		while (agent.pathPending || agent.remainingDistance > 1.5f)
 			yield return null;
 
@@ -160,7 +159,6 @@ public class CarController : MonoBehaviour
 		agent.isStopped = true;
 		agent.velocity = Vector3.zero;
 
-		// сирена + подзываем людей/учёных
 		if (!sirenFired)
 		{
 			if (sirenRingPrefab != null)
@@ -177,6 +175,7 @@ public class CarController : MonoBehaviour
 				if (h != null && Vector3.Distance(transform.position, h.transform.position) <= sirenRadius)
 				{
 					h.SetRescueTarget(transform);
+
 					if (humanAlertPrefab != null)
 					{
 						GameObject alert = Instantiate(
@@ -194,6 +193,7 @@ public class CarController : MonoBehaviour
 				if (s != null && Vector3.Distance(transform.position, s.transform.position) <= sirenRadius)
 				{
 					s.SetRescueTarget(transform);
+
 					if (humanAlertPrefab != null)
 					{
 						GameObject alert = Instantiate(
@@ -212,12 +212,10 @@ public class CarController : MonoBehaviour
 		float nextBoardTime = 0f;
 		float waitTimer = 0f;
 
-		// главный цикл загрузки
 		while (currentLoad < maxCapacity && !isTooHot && waitTimer < loadTime)
 		{
 			waitTimer += Time.deltaTime;
 
-			// too hot
 			foreach (var z in Zombie.AllZombies)
 			{
 				if (z != null && Vector3.Distance(transform.position, z.transform.position) < dangerRadius)
@@ -230,7 +228,6 @@ public class CarController : MonoBehaviour
 
 			if (isTooHot) break;
 
-			// каждые boardingCooldown секунд — максимум boardPerTick пассажиров
 			if (Time.time >= nextBoardTime)
 			{
 				int boarded = 0;
@@ -242,11 +239,9 @@ public class CarController : MonoBehaviour
 					if (boarded >= boardPerTick) break;
 
 					Human human = unit.GetComponent<Human>();
-					if (human != null)
+					if (human != null && !loadedUnits.Contains(human.gameObject))
 					{
-						var nav = human.GetComponent<NavMeshAgent>();
-						if (nav != null) nav.enabled = false;
-						human.transform.position = new Vector3(0, -1000, 0);
+						yield return StartCoroutine(human.PlayBoardingAnimation(transform.position, boardingAnimDuration, boardingLiftHeight));
 						loadedUnits.Add(human.gameObject);
 
 						currentLoad++;
@@ -256,11 +251,9 @@ public class CarController : MonoBehaviour
 					}
 
 					Scientist scientist = unit.GetComponent<Scientist>();
-					if (scientist != null)
+					if (scientist != null && !loadedUnits.Contains(scientist.gameObject))
 					{
-						var nav = scientist.GetComponent<NavMeshAgent>();
-						if (nav != null) nav.enabled = false;
-						scientist.transform.position = new Vector3(0, -1000, 0);
+						yield return StartCoroutine(scientist.PlayBoardingAnimation(transform.position, boardingAnimDuration, boardingLiftHeight));
 						loadedUnits.Add(scientist.gameObject);
 
 						currentLoad++;
@@ -287,13 +280,11 @@ public class CarController : MonoBehaviour
 			yield return new WaitForSeconds(0.8f);
 		}
 
-		// снимаем цели с тех, кто бежал к машине
 		foreach (var h in Human.AllHumans)
 			if (h != null && h.rescueTarget == transform) h.CancelRescue();
 		foreach (var s in Scientist.AllScientists)
 			if (s != null && s.rescueTarget == transform) s.CancelRescue();
 
-		// уезжаем
 		currentState = CarState.Leaving;
 		agent.isStopped = false;
 		agent.SetDestination(exitWaypoint.position);

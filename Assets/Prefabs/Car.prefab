@@ -5357,10 +5357,14 @@ MonoBehaviour:
   currentState: 0
   myCardData: {fileID: 11400000, guid: 59e9b6abedec9e244b3334109c1b6208, type: 2}
   crushRadius: 2
-  boardingRadius: 1
+  boardingRadius: 1.8
   boardPerTick: 1
   dangerRadius: 1
+  surroundRadius: 1.6
+  boardingAnimDuration: 0.28
+  boardingLiftHeight: 0.8
   loadText: {fileID: 1888311712434233021}
+  textHeight: 2
   hotWarning: {fileID: 3899805115213437500}
   sirenRingPrefab: {fileID: 865694016111778266, guid: 672cace4d5c238942b4f07bd8d5bdd57, type: 3}
   humanAlertPrefab: {fileID: 4475895485885616611, guid: 16e51574f7abee6408f6c11b6e587998, type: 3}

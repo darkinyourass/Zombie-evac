@@ -21,6 +21,11 @@ public class HelicopterController : MonoBehaviour
 	public Color landingColor = new Color(0f, 1f, 0.2f, 0.5f);
 	public GameObject customLandingPrefab;
 
+	[Header("Посадка")]
+	public float boardingRadius = 2.5f;
+	public float boardingAnimDuration = 0.28f;
+	public float boardingLiftHeight = 1.2f;
+
 	public GameObject sirenRingPrefab;
 	public GameObject humanAlertPrefab;
 	public float alertDuration = 2.0f;
@@ -69,6 +74,12 @@ public class HelicopterController : MonoBehaviour
 	public void Launch(Vector3 pos)
 	{
 		if (maxCapacity == 0) Start();
+
+		currentLoad = 0;
+		loadedHumanCount = 0;
+		loadedScientistCount = 0;
+		isTooHot = false;
+		loadedUnits.Clear();
 
 		targetPos = pos;
 		transform.position = new Vector3(pos.x, exitHeight, pos.z);
@@ -194,16 +205,14 @@ public class HelicopterController : MonoBehaviour
 
 				foreach (var hum in Human.AllHumans)
 				{
-					if (hum == null) continue;
+					if (hum == null || loadedUnits.Contains(hum.gameObject)) continue;
 
 					Vector2 heliPos2D = new Vector2(transform.position.x, transform.position.z);
 					Vector2 humanPos2D = new Vector2(hum.transform.position.x, hum.transform.position.z);
 
-					if (Vector2.Distance(heliPos2D, humanPos2D) < 2.5f)
+					if (Vector2.Distance(heliPos2D, humanPos2D) < boardingRadius)
 					{
-						var nav = hum.GetComponent<NavMeshAgent>();
-						if (nav != null) nav.enabled = false;
-						hum.transform.position = new Vector3(0, -1000, 0);
+						yield return StartCoroutine(hum.PlayBoardingAnimation(transform.position, boardingAnimDuration, boardingLiftHeight));
 						loadedUnits.Add(hum.gameObject);
 
 						currentLoad++;
@@ -217,16 +226,14 @@ public class HelicopterController : MonoBehaviour
 				{
 					foreach (var sci in Scientist.AllScientists)
 					{
-						if (sci == null) continue;
+						if (sci == null || loadedUnits.Contains(sci.gameObject)) continue;
 
 						Vector2 heliPos2D = new Vector2(transform.position.x, transform.position.z);
 						Vector2 scientistPos2D = new Vector2(sci.transform.position.x, sci.transform.position.z);
 
-						if (Vector2.Distance(heliPos2D, scientistPos2D) < 2.5f)
+						if (Vector2.Distance(heliPos2D, scientistPos2D) < boardingRadius)
 						{
-							var nav = sci.GetComponent<NavMeshAgent>();
-							if (nav != null) nav.enabled = false;
-							sci.transform.position = new Vector3(0, -1000, 0);
+							yield return StartCoroutine(sci.PlayBoardingAnimation(transform.position, boardingAnimDuration, boardingLiftHeight));
 							loadedUnits.Add(sci.gameObject);
 
 							currentLoad++;

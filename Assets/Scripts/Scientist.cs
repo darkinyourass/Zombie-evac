@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using System.Collections;
 using System.Collections.Generic;
 
 // [ГДЕ ВИСИТ]: На префабе учёного (Scientist).
@@ -16,6 +17,10 @@ public class Scientist : MonoBehaviour
 	[Header("Хаос")]
 	public ChaosSettings chaosSettings;
 
+	[Header("Эвакуация")]
+	public float carStoppingDistance = 1.4f;
+	public float heliStoppingDistance = 2.0f;
+
 	private NavMeshAgent agent;
 
 	[HideInInspector] public bool isRescuing = false;
@@ -24,6 +29,10 @@ public class Scientist : MonoBehaviour
 	private bool isPanicking = false;
 	private float panicEndTime = 0f;
 	private float nextPanicCheckTime = 0f;
+
+	private bool hasRescueApproachPoint = false;
+	private Vector3 rescueApproachPoint;
+	private bool isBoarding = false;
 
 	private void Awake() => agent = GetComponent<NavMeshAgent>();
 	private void OnEnable() => AllScientists.Add(this);
@@ -53,6 +62,8 @@ public class Scientist : MonoBehaviour
 			agent.isStopped = false;
 		}
 
+		if (isBoarding) return;
+
 		// Если сейчас в панике — просто ждём окончания
 		if (isPanicking)
 		{
@@ -70,9 +81,14 @@ public class Scientist : MonoBehaviour
 		if (isRescuing && rescueTarget != null)
 		{
 			agent.speed = runSpeed;
-			Vector3 groundTarget = new Vector3(rescueTarget.position.x, transform.position.y, rescueTarget.position.z);
 
-			if (Vector3.Distance(agent.destination, groundTarget) > 0.5f)
+			Vector3 targetPoint = hasRescueApproachPoint
+				? rescueApproachPoint
+				: new Vector3(rescueTarget.position.x, transform.position.y, rescueTarget.position.z);
+
+			Vector3 groundTarget = new Vector3(targetPoint.x, transform.position.y, targetPoint.z);
+
+			if (!agent.hasPath || Vector3.Distance(agent.destination, groundTarget) > 0.35f)
 			{
 				agent.SetDestination(groundTarget);
 			}
@@ -111,7 +127,7 @@ public class Scientist : MonoBehaviour
 
 			if (NavMesh.SamplePosition(targetFlee, out NavMeshHit hit, 4f, NavMesh.AllAreas))
 			{
-				if (Vector3.Distance(agent.destination, hit.position) > 1f)
+				if (!agent.hasPath || Vector3.Distance(agent.destination, hit.position) > 1f)
 				{
 					agent.SetDestination(hit.position);
 				}
@@ -182,10 +198,35 @@ public class Scientist : MonoBehaviour
 		isRescuing = true;
 		rescueTarget = t;
 		isPanicking = false;
+		hasRescueApproachPoint = false;
+
+		if (!agent.isActiveAndEnabled || !agent.isOnNavMesh)
+			return;
+
+		float stop = 0.0f;
+
+		if (t.GetComponent<CarController>() != null)
+			stop = carStoppingDistance;
+		else if (t.GetComponent<HelicopterController>() != null)
+			stop = heliStoppingDistance;
+
+		agent.stoppingDistance = stop;
+		Vector3 groundTarget = new Vector3(t.position.x, transform.position.y, t.position.z);
+		agent.SetDestination(groundTarget);
+	}
+
+	public void SetRescueTarget(Transform t, Vector3 approachPoint)
+	{
+		isRescuing = true;
+		rescueTarget = t;
+		isPanicking = false;
+		hasRescueApproachPoint = true;
+		rescueApproachPoint = approachPoint;
 
 		if (agent.isActiveAndEnabled && agent.isOnNavMesh)
 		{
-			Vector3 groundTarget = new Vector3(rescueTarget.position.x, transform.position.y, rescueTarget.position.z);
+			agent.stoppingDistance = 0f;
+			Vector3 groundTarget = new Vector3(approachPoint.x, transform.position.y, approachPoint.z);
 			agent.SetDestination(groundTarget);
 		}
 	}
@@ -194,11 +235,48 @@ public class Scientist : MonoBehaviour
 	{
 		isRescuing = false;
 		rescueTarget = null;
+		hasRescueApproachPoint = false;
+		isBoarding = false;
 
 		if (agent.isActiveAndEnabled && agent.isOnNavMesh)
 		{
+			agent.stoppingDistance = 0f;
 			agent.ResetPath();
 		}
+	}
+
+	public IEnumerator PlayBoardingAnimation(Vector3 boardCenter, float duration, float liftHeight = 0.6f)
+	{
+		isBoarding = true;
+		isRescuing = false;
+		hasRescueApproachPoint = false;
+		isPanicking = false;
+
+		if (agent != null && agent.isActiveAndEnabled)
+		{
+			agent.ResetPath();
+			agent.enabled = false;
+		}
+
+		Vector3 startPos = transform.position;
+		Vector3 endPos = boardCenter + Vector3.up * liftHeight;
+		Vector3 startScale = transform.localScale;
+		Vector3 endScale = Vector3.zero;
+
+		float t = 0f;
+		while (t < 1f)
+		{
+			t += Time.deltaTime / Mathf.Max(0.01f, duration);
+			float eased = Mathf.SmoothStep(0f, 1f, t);
+
+			transform.position = Vector3.Lerp(startPos, endPos, eased);
+			transform.localScale = Vector3.Lerp(startScale, endScale, eased);
+
+			yield return null;
+		}
+
+		transform.position = endPos;
+		transform.localScale = endScale;
 	}
 
 	private void SetRandomDest()
