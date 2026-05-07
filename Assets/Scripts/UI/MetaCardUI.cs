@@ -18,11 +18,18 @@ public class MetaCardUI : MonoBehaviour
 	[SerializeField] private Color colorEnough = Color.green; // Зеленый
 
 	private Button btn;
+	private Image cardBackground;
 
 	// Метод инициализации. Его будет вызывать менеджер колоды при спавне.
 	public void Setup(CardData data, CardProgress progress, UnityAction onClickAction)
 	{
 		if (btn == null) btn = GetComponent<Button>();
+		if (cardBackground == null) cardBackground = GetComponent<Image>();
+
+		// Возвращаем нормальные цвета на случай, если карточка переиспользуется
+		cardIcon.color = Color.white;
+		cardBackground.color = Color.white;
+		btn.interactable = true;
 
 		cardIcon.sprite = data.icon;
 
@@ -52,5 +59,23 @@ public class MetaCardUI : MonoBehaviour
 		// Привязываем клик
 		btn.onClick.RemoveAllListeners();
 		btn.onClick.AddListener(onClickAction);
+	}
+
+	// --- НОВОЕ: Метод для отрисовки закрытой карты ---
+	public void SetupLocked(CardData data)
+	{
+		if (btn == null) btn = GetComponent<Button>();
+		if (cardBackground == null) cardBackground = GetComponent<Image>();
+
+		cardIcon.sprite = data.icon;
+		cardIcon.color = Color.black; // Делаем иконку черным силуэтом
+		cardBackground.color = new Color(0.5f, 0.5f, 0.5f, 0.8f); // Серый фон карточки
+
+		levelText.text = "???";
+		progressText.text = "LOCKED";
+		progressBarFill.fillAmount = 0;
+
+		// Выключаем кнопку, чтобы нельзя было нажать
+		btn.interactable = false;
 	}
 }

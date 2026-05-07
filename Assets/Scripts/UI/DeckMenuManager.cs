@@ -5,7 +5,8 @@ using UnityEngine.UI;
 // [ЧТО НАСТРОИТЬ]:
 // 1. Deck Slots: выдели 5 твоих Image (DeckSlot_1 ... 5) из ActiveDeckBlock и перетащи сюда.
 // 2. Inventory Panel: перетащи сюда объект InventoryBlock.
-// 3. Inventory Card Prefab: перетащи сюда твой MetaCardPrefab из папки Prefabs.
+// 3. Locked Cards Panel: перетащи сюда новый объект LockedBlock.
+// 4. Inventory Card Prefab: перетащи сюда твой MetaCardPrefab из папки Prefabs.
 public class DeckMenuManager : MonoBehaviour
 {
 	[Header("Колода")]
@@ -13,6 +14,7 @@ public class DeckMenuManager : MonoBehaviour
 
 	[Header("Инвентарь")]
 	[SerializeField] private Transform inventoryPanel;
+	[SerializeField] private Transform lockedCardsPanel; // <-- НОВОЕ: Ссылка на блок закрытых карт
 	[SerializeField] private GameObject inventoryCardPrefab;
 
 	private void Start()
@@ -63,30 +65,49 @@ public class DeckMenuManager : MonoBehaviour
 			}
 		}
 
-		// 2. Очищаем старые карты в инвентаре
+		// 2. Очищаем старые карты
 		foreach (Transform child in inventoryPanel) Destroy(child.gameObject);
-
-		// 3. Рисуем карты в инвентаре
-		foreach (CardProgress progress in PlayerProfile.Instance.ownedCardsProgress)
+		if (lockedCardsPanel != null)
 		{
-			CardData cardData = PlayerProfile.Instance.allAvailableCards.Find(c => c.name == progress.cardId);
+			foreach (Transform child in lockedCardsPanel) Destroy(child.gameObject);
+		}
+
+		// 3. Сортируем все карты в игре на "открытые" и "закрытые"
+		foreach (CardData cardData in PlayerProfile.Instance.allAvailableCards)
+		{
 			if (cardData == null) continue;
 
-			// Проверяем, есть ли уже эта карта в колоде
-			bool isEquipped = false;
-			foreach (var deckCard in PlayerProfile.Instance.currentDeck)
+			// Ищем, есть ли прогресс по этой карте в профиле
+			CardProgress progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == cardData.name);
+
+			if (progress != null)
 			{
-				if (deckCard != null && deckCard.name == cardData.name) isEquipped = true;
+				// --- КАРТА ОТКРЫТА ---
+				// Проверяем, есть ли уже эта карта в колоде
+				bool isEquipped = false;
+				foreach (var deckCard in PlayerProfile.Instance.currentDeck)
+				{
+					if (deckCard != null && deckCard.name == cardData.name) isEquipped = true;
+				}
+
+				// Если карты нет в колоде - спавним её в инвентарь
+				if (!isEquipped)
+				{
+					GameObject cardObj = Instantiate(inventoryCardPrefab, inventoryPanel);
+					MetaCardUI cardUI = cardObj.GetComponent<MetaCardUI>();
+
+					Transform cardTransform = cardObj.transform;
+					cardUI.Setup(cardData, progress, () => CardPopupManager.Instance.OpenContextMenu(cardData, progress, false, cardTransform));
+				}
 			}
-
-			// Если карты нет в колоде - спавним её в инвентарь
-			if (!isEquipped)
+			else
 			{
-				GameObject cardObj = Instantiate(inventoryCardPrefab, inventoryPanel);
-				MetaCardUI cardUI = cardObj.GetComponent<MetaCardUI>();
-
-				Transform cardTransform = cardObj.transform;
-				cardUI.Setup(cardData, progress, () => CardPopupManager.Instance.OpenContextMenu(cardData, progress, false, cardTransform));
+				// --- КАРТА ЗАКРЫТА ---
+				if (lockedCardsPanel != null)
+				{
+					GameObject cardObj = Instantiate(inventoryCardPrefab, lockedCardsPanel);
+					cardObj.GetComponent<MetaCardUI>().SetupLocked(cardData);
+				}
 			}
 		}
 	}

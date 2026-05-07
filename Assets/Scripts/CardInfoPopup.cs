@@ -3,7 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 
 // [ГДЕ ВИСИТ]: На объекте CardInfoPopup (в корне Canvas).
-// [ЧТО НАСТРОИТЬ]: Закинь ссылки на все элементы из Шага 1. 
+// [ЧТО НАСТРОИТЬ]: Закинь ссылки на все элементы. 
 // Ссылку на DeckMenuManager тоже закинь, чтобы обновлять фон после прокачки.
 public class CardInfoPopup : MonoBehaviour
 {
@@ -19,6 +19,10 @@ public class CardInfoPopup : MonoBehaviour
 	[SerializeField] private TextMeshProUGUI upgradeCostText;
 	[SerializeField] private Button closeBtn;
 	[SerializeField] private Button backgroundCloseBtn; // Темный фон
+
+	[Header("Новые поля для меты")]
+	[SerializeField] private TextMeshProUGUI rarityText;
+	[SerializeField] private TextMeshProUGUI categoryText;
 
 	[Header("Связь")]
 	[SerializeField] private DeckMenuManager deckManager;
@@ -45,6 +49,21 @@ public class CardInfoPopup : MonoBehaviour
 
 		cardIcon.sprite = data.icon;
 		cardNameText.text = data.cardName;
+
+		// --- НОВОЕ: Категория и Редкость ---
+		if (categoryText != null) categoryText.text = $"Тип: {data.category}";
+
+		if (rarityText != null)
+		{
+			rarityText.text = data.rarity.ToString();
+			switch (data.rarity)
+			{
+				case CardRarity.Common: rarityText.color = Color.white; break;
+				case CardRarity.Rare: rarityText.color = new Color(0.2f, 0.6f, 1f); break; // Синий
+				case CardRarity.Epic: rarityText.color = new Color(0.7f, 0.2f, 1f); break; // Фиолетовый
+				case CardRarity.Legendary: rarityText.color = new Color(1f, 0.6f, 0f); break; // Оранжевый
+			}
+		}
 
 		int lvl = progress != null ? progress.currentLevel : 1;
 		int shards = progress != null ? progress.collectedShards : 0;
@@ -119,9 +138,6 @@ public class CardInfoPopup : MonoBehaviour
 
 		// 3. Обновляем UI колоды на фоне
 		if (deckManager != null) deckManager.RefreshUI();
-
-		// P.S. В будущем мы можем добавить сюда аналитику, например:
-		// AnalyticsManager.LogEvent("card_upgrade", currentData.cardName, currentProgress.currentLevel);
 	}
 
 	public void Close()
