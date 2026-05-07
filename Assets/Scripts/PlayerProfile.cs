@@ -1,4 +1,5 @@
 using UnityEngine;
+using System; // <-- Обязательно для событий
 using System.Collections.Generic;
 using System.Linq;
 
@@ -6,9 +7,12 @@ public class PlayerProfile : MonoBehaviour
 {
 	public static PlayerProfile Instance;
 
+	// --- НОВОЕ: Событие обновления профиля ---
+	public Action OnProfileUpdated;
+
 	[Header("Данные игрока")]
-	public int totalCurrency = 0;
-	public int totalScientistsCurrency = 0;
+	public int totalCurrency = 0; // Люди (Софт)
+	public int totalScientistsCurrency = 0; // Ученые (Хард)
 
 	[Header("Прогресс карты (Saga)")]
 	public int currentRegionIndex = 0;
@@ -83,6 +87,9 @@ public class PlayerProfile : MonoBehaviour
 		PlayerPrefs.SetString("CurrentDeck", string.Join(",", deckIds));
 
 		PlayerPrefs.Save();
+
+		// --- НОВОЕ: Заставляем UI обновиться! ---
+		OnProfileUpdated?.Invoke();
 	}
 
 	public void CompleteCurrentLevel()

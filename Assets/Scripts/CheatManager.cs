@@ -48,7 +48,8 @@ public class CheatManager : MonoBehaviour
 		// ПК-КНОПКИ (РАБОТАЮТ ВЕЗДЕ)
 		if (Input.GetKeyDown(KeyCode.F1)) GiveMaxResources();
 		if (Input.GetKeyDown(KeyCode.F7)) ResetSaves();
-		if (Input.GetKeyDown(KeyCode.F8)) GiveCardsCheat(); // <-- НОВЫЙ ЧИТ НА КАРТОЧКИ
+		if (Input.GetKeyDown(KeyCode.F8)) GiveCardsCheat();
+		if (Input.GetKeyDown(KeyCode.F9)) AddHardCurrency(); // Чит на Ученых (Хард)
 
 		// Остальные читы работают только если мы нашли GameManager (значит мы в бою)
 		if (GameManager.Instance != null)
@@ -57,11 +58,10 @@ public class CheatManager : MonoBehaviour
 			if (Input.GetKeyDown(KeyCode.F3)) currentMode = SpawnMode.Zombie;
 			if (Input.GetKeyDown(KeyCode.F4)) FillMana();
 			if (Input.GetKeyDown(KeyCode.F5)) CheatWin();
-			if (Input.GetKeyDown(KeyCode.F6)) AddCurrency();
+			if (Input.GetKeyDown(KeyCode.F6)) AddCurrency(); // Чит на Людей (Софт)
 
 			if (currentMode != SpawnMode.None && Input.GetMouseButtonDown(0))
 			{
-				// Защита от клика сквозь кнопки меню
 				if (showMenu && Input.mousePosition.x < Screen.width * 0.35f) return;
 				SpawnAtTap(Input.mousePosition);
 			}
@@ -77,7 +77,6 @@ public class CheatManager : MonoBehaviour
 
 		if (Input.GetMouseButtonDown(0))
 		{
-			// Левый верхний угол
 			if (Input.mousePosition.x < Screen.width * 0.3f && Input.mousePosition.y > Screen.height * 0.7f)
 			{
 				tapCount++;
@@ -109,18 +108,15 @@ public class CheatManager : MonoBehaviour
 		{
 			float yPos = padding + btnH + padding;
 
-			// Глобальные читы
 			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "Unlock All (F1)")) GiveMaxResources();
 			yPos += btnH + padding;
 
-			// --- НОВЫЙ ЧИТ ДЛЯ МЕТЫ ---
-			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "+100 All Cards (F8)")) GiveCardsCheat();
+			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "+100 Shards + Cash (F8)")) GiveCardsCheat();
 			yPos += btnH + padding;
 
 			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "RESET ALL (F7)")) ResetSaves();
 			yPos += btnH + padding;
 
-			// Боевые читы (только если есть GameManager)
 			if (GameManager.Instance != null)
 			{
 				string hText = currentMode == SpawnMode.Human ? "> TAP MAP <" : "Spawn Human (F2)";
@@ -135,24 +131,28 @@ public class CheatManager : MonoBehaviour
 				yPos += btnH + padding;
 			}
 
-			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "+10 Cash (F6)")) AddCurrency();
+			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "+100 People (F6)")) AddCurrency();
+			yPos += btnH + padding;
+
+			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "+100 Scientists (F9)")) AddHardCurrency();
 		}
 	}
-
-	// --- ЛОГИКА ЧИТОВ ---
 
 	private void ResetSaves()
 	{
 		PlayerPrefs.DeleteAll();
 		PlayerPrefs.Save();
 		Debug.Log("<color=red>СБРОС: Все данные стерты. Перезапуск...</color>");
-		SceneManager.LoadScene(0); // Загружаем самую первую сцену (Bootstrap)
+		SceneManager.LoadScene(0);
 	}
 
 	private void GiveMaxResources()
 	{
 		if (PlayerProfile.Instance == null) return;
+
+		// Даем обе валюты
 		PlayerProfile.Instance.totalCurrency += 10000;
+		PlayerProfile.Instance.totalScientistsCurrency += 1000;
 
 		foreach (CardData card in PlayerProfile.Instance.allAvailableCards)
 		{
@@ -160,41 +160,37 @@ public class CheatManager : MonoBehaviour
 				PlayerProfile.Instance.ownedCardsProgress.Add(new CardProgress(card.name));
 		}
 
-		PlayerProfile.Instance.SaveProfile();
+		PlayerProfile.Instance.SaveProfile(); // Это обновит UI счетчиков
 		RefreshDeckMenu();
 	}
 
-	// НОВЫЙ МЕТОД: Насыпает по 100 копий каждой карты
 	private void GiveCardsCheat()
 	{
 		if (PlayerProfile.Instance == null) return;
 
-		// Сыпем немного валюты сверху, чтобы было за что качать
+		// Даем людей (Софт) для прокачки
 		PlayerProfile.Instance.totalCurrency += 5000;
 
 		foreach (CardData card in PlayerProfile.Instance.allAvailableCards)
 		{
 			CardProgress progress = PlayerProfile.Instance.ownedCardsProgress.Find(p => p.cardId == card.name);
 
-			// Если карты еще нет — выдаем её
 			if (progress == null)
 			{
 				progress = new CardProgress(card.name);
 				PlayerProfile.Instance.ownedCardsProgress.Add(progress);
 			}
 
-			// Добавляем 100 дубликатов
 			progress.collectedShards += 100;
 		}
 
-		PlayerProfile.Instance.SaveProfile();
+		PlayerProfile.Instance.SaveProfile(); // Это обновит UI счетчиков
 		RefreshDeckMenu();
-		Debug.Log("<color=green>ЧИТ: Добавлено +100 дубликатов каждой карты и 5000 золота!</color>");
+		Debug.Log("<color=green>ЧИТ: Добавлено +100 дубликатов каждой карты и 5000 людей!</color>");
 	}
 
 	private void RefreshDeckMenu()
 	{
-		// Если мы в меню — обновляем визуал колоды мгновенно
 		var menu = FindFirstObjectByType<DeckMenuManager>();
 		if (menu != null) menu.RefreshUI();
 	}
@@ -203,12 +199,23 @@ public class CheatManager : MonoBehaviour
 
 	private void FillMana() => EnergyManager.Instance?.CheatFillEnergy();
 
+	// Чит на Людей (Софт валюта)
 	private void AddCurrency()
 	{
 		if (GameManager.Instance != null) GameManager.Instance.AddRescuedHumans(10, Vector3.zero);
 		else if (PlayerProfile.Instance != null)
 		{
 			PlayerProfile.Instance.totalCurrency += 100;
+			PlayerProfile.Instance.SaveProfile();
+		}
+	}
+
+	// Чит на Ученых (Хард валюта)
+	private void AddHardCurrency()
+	{
+		if (PlayerProfile.Instance != null)
+		{
+			PlayerProfile.Instance.totalScientistsCurrency += 100;
 			PlayerProfile.Instance.SaveProfile();
 		}
 	}

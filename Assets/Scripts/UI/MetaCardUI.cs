@@ -4,7 +4,6 @@ using TMPro;
 using UnityEngine.Events;
 
 // [ГДЕ ВИСИТ]: На твоем префабе MetaCardPrefab (в папке Prefabs).
-// [ЧТО НАСТРОИТЬ]: Закинь ссылки на Image и TextMeshPro внутри префаба.
 public class MetaCardUI : MonoBehaviour
 {
 	[Header("Ссылки на UI")]
@@ -20,13 +19,12 @@ public class MetaCardUI : MonoBehaviour
 	private Button btn;
 	private Image cardBackground;
 
-	// Метод инициализации. Его будет вызывать менеджер колоды при спавне.
 	public void Setup(CardData data, CardProgress progress, UnityAction onClickAction)
 	{
 		if (btn == null) btn = GetComponent<Button>();
 		if (cardBackground == null) cardBackground = GetComponent<Image>();
 
-		// Возвращаем нормальные цвета на случай, если карточка переиспользуется
+		// Возвращаем нормальные цвета
 		cardIcon.color = Color.white;
 		cardBackground.color = Color.white;
 		btn.interactable = true;
@@ -37,11 +35,9 @@ public class MetaCardUI : MonoBehaviour
 		int shards = progress != null ? progress.collectedShards : 0;
 		levelText.text = $"Lvl {lvl}";
 
-		// Логика прогресс-бара
 		bool isMaxLevel = lvl >= data.maxLevel || data.upgradeCosts.Count == 0;
 		if (!isMaxLevel)
 		{
-			// Берем цену апгрейда из конфига (индекс на 1 меньше уровня)
 			int costIndex = Mathf.Clamp(lvl - 1, 0, data.upgradeCosts.Count - 1);
 			int required = data.upgradeCosts[costIndex].duplicateCardsNeeded;
 
@@ -56,26 +52,41 @@ public class MetaCardUI : MonoBehaviour
 			progressBarFill.color = Color.yellow;
 		}
 
-		// Привязываем клик
 		btn.onClick.RemoveAllListeners();
 		btn.onClick.AddListener(onClickAction);
 	}
 
-	// --- НОВОЕ: Метод для отрисовки закрытой карты ---
 	public void SetupLocked(CardData data)
 	{
 		if (btn == null) btn = GetComponent<Button>();
 		if (cardBackground == null) cardBackground = GetComponent<Image>();
 
 		cardIcon.sprite = data.icon;
-		cardIcon.color = Color.black; // Делаем иконку черным силуэтом
-		cardBackground.color = new Color(0.5f, 0.5f, 0.5f, 0.8f); // Серый фон карточки
+		cardIcon.color = Color.black;
+		cardBackground.color = new Color(0.5f, 0.5f, 0.5f, 0.8f);
 
 		levelText.text = "???";
 		progressText.text = "LOCKED";
 		progressBarFill.fillAmount = 0;
 
-		// Выключаем кнопку, чтобы нельзя было нажать
 		btn.interactable = false;
+	}
+
+	// --- НОВОЕ: Метод для пустого слота колоды ---
+	public void SetupEmpty()
+	{
+		if (btn == null) btn = GetComponent<Button>();
+		if (cardBackground == null) cardBackground = GetComponent<Image>();
+
+		cardIcon.sprite = null;
+		cardIcon.color = new Color(0, 0, 0, 0f); // Делаем иконку полностью прозрачной
+		cardBackground.color = new Color(0, 0, 0, 0.3f); // Делаем сам слот полупрозрачным черным
+
+		levelText.text = "";
+		progressText.text = "";
+		progressBarFill.fillAmount = 0;
+
+		btn.interactable = false;
+		btn.onClick.RemoveAllListeners();
 	}
 }
