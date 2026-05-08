@@ -162,7 +162,6 @@ public class Soldier : MonoBehaviour
 
 		if (!TryResolveShot(target, shootOrigin, targetPoint, out Zombie hitZombie, out Vector3 hitPoint))
 		{
-			// Если вообще ничего не нашли, всё равно рисуем луч к цели, чтобы не выглядело как поломка.
 			ShowTracer(shootOrigin, targetPoint);
 			return;
 		}
@@ -186,7 +185,6 @@ public class Soldier : MonoBehaviour
 
 		dir /= dist;
 
-		// 1. Сначала честный тонкий луч
 		if (Physics.Raycast(origin, dir, out RaycastHit rayHit, attackRange, shootMask))
 		{
 			hitPoint = rayHit.point;
@@ -197,11 +195,9 @@ public class Soldier : MonoBehaviour
 				return true;
 			}
 
-			// Если луч упёрся в obstacle/дом, считаем выстрел блокнутым
 			return true;
 		}
 
-		// 2. Если тонкий луч не попал, даём небольшую "поблажку" для примитивов
 		if (Physics.SphereCast(origin, aimForgivenessRadius, dir, out RaycastHit sphereHit, attackRange, shootMask))
 		{
 			Zombie sphereZombie = sphereHit.collider.GetComponentInParent<Zombie>();
@@ -213,17 +209,17 @@ public class Soldier : MonoBehaviour
 			}
 		}
 
-		// 3. Фоллбек: если цель ещё в радиусе и близка к траектории — считаем, что попали в неё
 		if (intendedTarget != null && !intendedTarget.IsDead)
 		{
-			Vector3 centerToLine = ClosestPointOnRay(origin, dir, intendedTarget.transform.position + Vector3.up * targetHeightOffset);
-			float off = Vector3.Distance(centerToLine, intendedTarget.transform.position + Vector3.up * targetHeightOffset);
-			float directDist = Vector3.Distance(origin, intendedTarget.transform.position + Vector3.up * targetHeightOffset);
+			Vector3 intendedPoint = intendedTarget.transform.position + Vector3.up * targetHeightOffset;
+			Vector3 centerToLine = ClosestPointOnRay(origin, dir, intendedPoint);
+			float off = Vector3.Distance(centerToLine, intendedPoint);
+			float directDist = Vector3.Distance(origin, intendedPoint);
 
 			if (directDist <= attackRange + retargetThreshold && off <= aimForgivenessRadius + retargetThreshold)
 			{
 				hitZombie = intendedTarget;
-				hitPoint = intendedTarget.transform.position + Vector3.up * targetHeightOffset;
+				hitPoint = intendedPoint;
 				return true;
 			}
 		}
