@@ -1,13 +1,26 @@
 using UnityEngine;
 using System.Collections;
-using System.Collections.Generic;
 
 // [ГДЕ ВИСИТ]: На префабе Солдата.
 // [НАСТРОЙКИ]: Назначить только myCardData.
+// Для примитивов оружие не нужно: выстрел идёт из верхней передней части куба.
+[RequireComponent(typeof(LineRenderer))]
 public class Soldier : MonoBehaviour
 {
 	[Header("Связь с карточкой")]
 	public CardData myCardData;
+
+	[Header("Визуал и стрельба")]
+	public LayerMask shootMask = ~0;
+	public float aimTurnSpeed = 10f;
+	public float tracerLifeTime = 0.08f;
+	public float shootOriginHeight = 0.9f;
+	public float shootOriginForwardOffset = 0.45f;
+
+	[Header("Точность")]
+	public float targetHeightOffset = 0.7f;
+	public float aimForgivenessRadius = 0.3f;
+	public float retargetThreshold = 0.35f;
 
 	private float fireRate;
 	private float attackRange;
@@ -15,32 +28,26 @@ public class Soldier : MonoBehaviour
 	private float lifespan;
 
 	private float currentFireRate;
-	// private float buffTimer = 0f; // <-- ОТКЛЮЧЕНО
 	private bool isExtracting = false;
 
-	private Renderer[] allRenderers;
-	// private Dictionary<Renderer, Color> originalColors = new Dictionary<Renderer, Color>(); // <-- ОТКЛЮЧЕНО
 	private LineRenderer tracerLine;
+	private Coroutine shootRoutine;
+	private Coroutine tracerRoutine;
 
 	private void Awake()
 	{
-		allRenderers = GetComponentsInChildren<Renderer>();
-
-		/* --- ОТКЛЮЧЕНО ДЛЯ MVP: Логика кеширования цветов для баффа ---
-		foreach (var r in allRenderers)
+		tracerLine = GetComponent<LineRenderer>();
+		if (tracerLine == null)
 		{
-			if (r == null) continue;
-			if (r.material.HasProperty("_BaseColor")) originalColors[r] = r.material.GetColor("_BaseColor");
-			else if (r.material.HasProperty("_Color")) originalColors[r] = r.material.color;
+			tracerLine = gameObject.AddComponent<LineRenderer>();
 		}
-		*/
 
-		tracerLine = gameObject.AddComponent<LineRenderer>();
-		tracerLine.startWidth = 0.2f;
+		tracerLine.positionCount = 2;
+		tracerLine.startWidth = 0.14f;
 		tracerLine.endWidth = 0.05f;
 		tracerLine.material = new Material(Shader.Find("Sprites/Default"));
-		tracerLine.startColor = Color.yellow;
-		tracerLine.endColor = new Color(1, 0.5f, 0);
+		tracerLine.startColor = new Color(1f, 0.95f, 0.2f, 1f);
+		tracerLine.endColor = new Color(1f, 0.45f, 0.05f, 0.9f);
 		tracerLine.enabled = false;
 	}
 
@@ -59,11 +66,14 @@ public class Soldier : MonoBehaviour
 		}
 		else
 		{
-			fireRate = 1.5f; attackRange = 12f; damage = 20; lifespan = 8f;
+			fireRate = 1.5f;
+			attackRange = 12f;
+			damage = 20;
+			lifespan = 8f;
 		}
 
-		currentFireRate = fireRate;
-		StartCoroutine(ShootRoutine());
+		currentFireRate = Mathf.Max(0.05f, fireRate);
+		shootRoutine = StartCoroutine(ShootRoutine());
 	}
 
 	private void Update()
@@ -71,25 +81,38 @@ public class Soldier : MonoBehaviour
 		if (isExtracting) return;
 
 		lifespan -= Time.deltaTime;
-		if (lifespan <= 0) StartCoroutine(ExtractRoutine());
-
-		/* --- ОТКЛЮЧЕНО ДЛЯ MVP ---
-		if (buffTimer > 0)
+		if (lifespan <= 0f)
 		{
-			buffTimer -= Time.deltaTime;
-			if (buffTimer <= 0)
+			StartCoroutine(ExtractRoutine());
+			return;
+		}
+
+		Zombie target = FindTarget();
+		if (target != null)
+		{
+			Vector3 lookDir = target.transform.position - transform.position;
+			lookDir.y = 0f;
+
+			if (lookDir.sqrMagnitude > 0.0001f)
 			{
-				currentFireRate = fireRate;
-				RestoreOriginalColors();
+				Quaternion targetRot = Quaternion.LookRotation(lookDir);
+				transform.rotation = Quaternion.Lerp(transform.rotation, targetRot, Time.deltaTime * aimTurnSpeed);
 			}
 		}
-		*/
 	}
 
 	private IEnumerator ExtractRoutine()
 	{
+		if (isExtracting) yield break;
+
 		isExtracting = true;
 		tracerLine.enabled = false;
+
+		if (shootRoutine != null)
+		{
+			StopCoroutine(shootRoutine);
+			shootRoutine = null;
+		}
 
 		var agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
 		if (agent != null) agent.enabled = false;
@@ -97,8 +120,9 @@ public class Soldier : MonoBehaviour
 		var col = GetComponent<Collider>();
 		if (col != null) col.enabled = false;
 
-		float t = 0;
+		float t = 0f;
 		Vector3 startScale = transform.localScale;
+
 		while (t < 1f)
 		{
 			t += Time.deltaTime * 3f;
@@ -111,85 +135,185 @@ public class Soldier : MonoBehaviour
 
 	private IEnumerator ShootRoutine()
 	{
+		WaitForSeconds idleWait = new WaitForSeconds(0.03f);
+
 		while (!isExtracting)
 		{
 			Zombie target = FindTarget();
+
 			if (target != null)
 			{
-				target.TakeDamage(damage);
-
-				tracerLine.SetPosition(0, transform.position + Vector3.up * 1.5f);
-				tracerLine.SetPosition(1, target.transform.position + Vector3.up);
-				tracerLine.enabled = true;
-
-				StartCoroutine(HideTracer());
+				DoShot(target);
+				yield return new WaitForSeconds(currentFireRate);
 			}
-			yield return new WaitForSeconds(currentFireRate);
+			else
+			{
+				yield return idleWait;
+			}
 		}
+	}
+
+	private void DoShot(Zombie target)
+	{
+		if (target == null || target.IsDead) return;
+
+		Vector3 shootOrigin = GetShootOrigin();
+		Vector3 targetPoint = GetAimPoint(target);
+
+		if (!TryResolveShot(target, shootOrigin, targetPoint, out Zombie hitZombie, out Vector3 hitPoint))
+		{
+			// Если вообще ничего не нашли, всё равно рисуем луч к цели, чтобы не выглядело как поломка.
+			ShowTracer(shootOrigin, targetPoint);
+			return;
+		}
+
+		if (hitZombie != null && !hitZombie.IsDead)
+		{
+			hitZombie.TakeDamage(damage);
+		}
+
+		ShowTracer(shootOrigin, hitPoint);
+	}
+
+	private bool TryResolveShot(Zombie intendedTarget, Vector3 origin, Vector3 targetPoint, out Zombie hitZombie, out Vector3 hitPoint)
+	{
+		hitZombie = null;
+		hitPoint = targetPoint;
+
+		Vector3 dir = targetPoint - origin;
+		float dist = dir.magnitude;
+		if (dist <= 0.01f) return false;
+
+		dir /= dist;
+
+		// 1. Сначала честный тонкий луч
+		if (Physics.Raycast(origin, dir, out RaycastHit rayHit, attackRange, shootMask))
+		{
+			hitPoint = rayHit.point;
+			hitZombie = rayHit.collider.GetComponentInParent<Zombie>();
+
+			if (hitZombie != null)
+			{
+				return true;
+			}
+
+			// Если луч упёрся в obstacle/дом, считаем выстрел блокнутым
+			return true;
+		}
+
+		// 2. Если тонкий луч не попал, даём небольшую "поблажку" для примитивов
+		if (Physics.SphereCast(origin, aimForgivenessRadius, dir, out RaycastHit sphereHit, attackRange, shootMask))
+		{
+			Zombie sphereZombie = sphereHit.collider.GetComponentInParent<Zombie>();
+			if (sphereZombie != null)
+			{
+				hitZombie = sphereZombie;
+				hitPoint = sphereHit.point;
+				return true;
+			}
+		}
+
+		// 3. Фоллбек: если цель ещё в радиусе и близка к траектории — считаем, что попали в неё
+		if (intendedTarget != null && !intendedTarget.IsDead)
+		{
+			Vector3 centerToLine = ClosestPointOnRay(origin, dir, intendedTarget.transform.position + Vector3.up * targetHeightOffset);
+			float off = Vector3.Distance(centerToLine, intendedTarget.transform.position + Vector3.up * targetHeightOffset);
+			float directDist = Vector3.Distance(origin, intendedTarget.transform.position + Vector3.up * targetHeightOffset);
+
+			if (directDist <= attackRange + retargetThreshold && off <= aimForgivenessRadius + retargetThreshold)
+			{
+				hitZombie = intendedTarget;
+				hitPoint = intendedTarget.transform.position + Vector3.up * targetHeightOffset;
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private Vector3 ClosestPointOnRay(Vector3 rayOrigin, Vector3 rayDirNormalized, Vector3 point)
+	{
+		float t = Vector3.Dot(point - rayOrigin, rayDirNormalized);
+		t = Mathf.Max(0f, t);
+		return rayOrigin + rayDirNormalized * t;
+	}
+
+	private Vector3 GetShootOrigin()
+	{
+		return transform.position
+			+ Vector3.up * shootOriginHeight
+			+ transform.forward * shootOriginForwardOffset;
+	}
+
+	private Vector3 GetAimPoint(Zombie target)
+	{
+		Collider col = target.GetComponent<Collider>();
+
+		if (col != null)
+		{
+			Bounds b = col.bounds;
+			return new Vector3(
+				b.center.x,
+				b.min.y + b.size.y * 0.7f,
+				b.center.z
+			);
+		}
+
+		return target.transform.position + Vector3.up * targetHeightOffset;
+	}
+
+	private void ShowTracer(Vector3 start, Vector3 end)
+	{
+		tracerLine.SetPosition(0, start);
+		tracerLine.SetPosition(1, end);
+		tracerLine.enabled = true;
+
+		if (tracerRoutine != null)
+		{
+			StopCoroutine(tracerRoutine);
+		}
+		tracerRoutine = StartCoroutine(HideTracer());
 	}
 
 	private IEnumerator HideTracer()
 	{
-		yield return new WaitForSeconds(0.2f);
+		float t = 0f;
+		float baseStartWidth = 0.14f;
+		float baseEndWidth = 0.05f;
+
+		while (t < tracerLifeTime)
+		{
+			t += Time.deltaTime;
+			float k = 1f - (t / tracerLifeTime);
+
+			tracerLine.startWidth = Mathf.Lerp(0.02f, baseStartWidth, k);
+			tracerLine.endWidth = Mathf.Lerp(0.01f, baseEndWidth, k);
+
+			yield return null;
+		}
+
 		tracerLine.enabled = false;
+		tracerLine.startWidth = baseStartWidth;
+		tracerLine.endWidth = baseEndWidth;
 	}
 
 	private Zombie FindTarget()
 	{
-		Zombie best = null; float minD = attackRange;
+		Zombie best = null;
+		float minD = attackRange;
+
 		foreach (var z in Zombie.AllZombies)
 		{
-			if (z == null) continue;
-			float d = Vector3.Distance(transform.position, z.transform.position);
+			if (z == null || z.IsDead) continue;
 
-			if (d < minD && HasLineOfSight(z.transform))
+			float d = Vector3.Distance(transform.position, z.transform.position);
+			if (d < minD)
 			{
-				minD = d; best = z;
+				minD = d;
+				best = z;
 			}
 		}
+
 		return best;
 	}
-
-	private bool HasLineOfSight(Transform target)
-	{
-		Vector3 start = transform.position + Vector3.up * 1.5f;
-		Vector3 dir = (target.position + Vector3.up * 1.0f) - start;
-
-		if (Physics.Raycast(start, dir.normalized, out RaycastHit hit, dir.magnitude))
-		{
-			if (hit.collider.CompareTag("Building")) return false;
-		}
-		return true;
-	}
-
-	/* --- ОТКЛЮЧЕНО ДЛЯ MVP: Методы перекраски ---
-	public void ApplyHeliBuff(float speedMultiplier)
-	{
-		currentFireRate = fireRate / speedMultiplier;
-		buffTimer = 2f;
-		ChangeColor(Color.green);
-	}
-
-	private void ChangeColor(Color targetColor)
-	{
-		if (allRenderers == null) return;
-		foreach (var r in allRenderers)
-		{
-			if (r == null) continue;
-			if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", targetColor);
-			else if (r.material.HasProperty("_Color")) r.material.color = targetColor;
-		}
-	}
-
-	private void RestoreOriginalColors()
-	{
-		if (allRenderers == null) return;
-		foreach (var r in allRenderers)
-		{
-			if (r == null || !originalColors.ContainsKey(r)) continue;
-			if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", originalColors[r]);
-			else if (r.material.HasProperty("_Color")) r.material.color = originalColors[r];
-		}
-	}
-	*/
 }

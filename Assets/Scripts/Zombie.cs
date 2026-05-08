@@ -33,6 +33,11 @@ public class Zombie : MonoBehaviour
 	[Tooltip("Длительность одного цикла дрожания")]
 	public float crowdShakeDuration = 0.35f;
 
+	[Header("Хит-фидбэк")]
+	public Color hitFlashColor = Color.white;
+	public float hitFlashDuration = 0.08f;
+	public float deathShrinkDuration = 0.12f;
+
 	protected NavMeshAgent agent;
 	protected int currentHealth;
 	protected bool isDead = false;
@@ -46,10 +51,27 @@ public class Zombie : MonoBehaviour
 	private Vector3 currentBaitDestination;
 	private Tween crowdShakeTween;
 
+	private Renderer[] allRenderers;
+	private Dictionary<Renderer, Color> originalColors = new Dictionary<Renderer, Color>();
+	private Coroutine hitFlashRoutine;
+
+	public bool IsDead => isDead;
+
 	protected virtual void Awake()
 	{
 		agent = GetComponent<NavMeshAgent>();
 		currentHealth = maxHealth;
+
+		allRenderers = GetComponentsInChildren<Renderer>();
+		foreach (var r in allRenderers)
+		{
+			if (r == null) continue;
+
+			if (r.material.HasProperty("_BaseColor"))
+				originalColors[r] = r.material.GetColor("_BaseColor");
+			else if (r.material.HasProperty("_Color"))
+				originalColors[r] = r.material.color;
+		}
 	}
 
 	protected virtual void OnEnable()
@@ -395,9 +417,54 @@ public class Zombie : MonoBehaviour
 		if (isDead) return;
 
 		currentHealth -= damageTaken;
+
 		if (currentHealth <= 0)
 		{
 			Die();
+			return;
+		}
+
+		if (hitFlashRoutine != null)
+		{
+			StopCoroutine(hitFlashRoutine);
+		}
+		hitFlashRoutine = StartCoroutine(HitFlashRoutine());
+	}
+
+	private IEnumerator HitFlashRoutine()
+	{
+		SetAllRendererColors(hitFlashColor);
+		yield return new WaitForSeconds(hitFlashDuration);
+		RestoreOriginalColors();
+	}
+
+	private void SetAllRendererColors(Color color)
+	{
+		if (allRenderers == null) return;
+
+		foreach (var r in allRenderers)
+		{
+			if (r == null) continue;
+
+			if (r.material.HasProperty("_BaseColor"))
+				r.material.SetColor("_BaseColor", color);
+			else if (r.material.HasProperty("_Color"))
+				r.material.color = color;
+		}
+	}
+
+	private void RestoreOriginalColors()
+	{
+		if (allRenderers == null) return;
+
+		foreach (var r in allRenderers)
+		{
+			if (r == null || !originalColors.ContainsKey(r)) continue;
+
+			if (r.material.HasProperty("_BaseColor"))
+				r.material.SetColor("_BaseColor", originalColors[r]);
+			else if (r.material.HasProperty("_Color"))
+				r.material.color = originalColors[r];
 		}
 	}
 
@@ -413,9 +480,38 @@ public class Zombie : MonoBehaviour
 
 		KillCrowdTween();
 
+		if (hitFlashRoutine != null)
+		{
+			StopCoroutine(hitFlashRoutine);
+			hitFlashRoutine = null;
+		}
+
 		if (agent != null && agent.enabled)
 		{
 			agent.isStopped = true;
+			agent.enabled = false;
+		}
+
+		var col = GetComponent<Collider>();
+		if (col != null)
+		{
+			col.enabled = false;
+		}
+
+		StartCoroutine(DeathRoutine());
+	}
+
+	private IEnumerator DeathRoutine()
+	{
+		Vector3 startScale = transform.localScale;
+		float t = 0f;
+
+		while (t < 1f)
+		{
+			t += Time.deltaTime / Mathf.Max(0.01f, deathShrinkDuration);
+			float eased = Mathf.SmoothStep(0f, 1f, t);
+			transform.localScale = Vector3.Lerp(startScale, Vector3.zero, eased);
+			yield return null;
 		}
 
 		Destroy(gameObject);

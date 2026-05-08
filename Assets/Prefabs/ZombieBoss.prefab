@@ -91,7 +91,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b0d1bfaf03f7d784ab0780efc6c7994e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHealth: 100
+  maxHealth: 200
   detectRadius: 10
   attackDistance: 1.4
   attackCooldown: 1
@@ -99,6 +99,9 @@ MonoBehaviour:
   infectDelay: 0.15
   zombiePrefab: {fileID: 5563988904170882665, guid: 35f1b3dcc90a70748b76c896e76d296e, type: 3}
   chaosSettings: {fileID: 11400000, guid: f5c10597ed9fc044aa87725e3945c485, type: 2}
+  crowdRadius: 0.8
+  crowdShakeStrength: 0.12
+  crowdShakeDuration: 0.35
   rageInterval: 8
   rageDuration: 2.5
   rageBreakRadius: 4
