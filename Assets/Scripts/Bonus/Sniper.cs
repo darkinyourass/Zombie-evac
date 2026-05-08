@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 // [ГДЕ ВИСИТ]: На префабе Снайпера (спавнится только на зданиях).
 // [НАСТРОЙКИ]: В инспекторе нужно назначить myCardData.
@@ -18,6 +19,10 @@ public class Sniper : MonoBehaviour
 	public int maxPierceTargets = 3;      // максимум зомбей, которых можно задеть одним выстрелом
 	public float pierceDamageFalloff = 0.5f; // коэффициент урона для каждого следующего (1, 0.5, 0.25 и т.д.)
 
+	[Header("Приоритет спасения")]
+	public float civilianThreatRadius = 6f; // если зомби дальше этого расстояния от мирных, он не считается срочной угрозой
+	public float progressBias = 0.05f;      // лёгкий бонус тем, кто дальше продвинулся по Z
+
 	private float cooldownDelay;
 	private float attackRange;
 	private int damage;
@@ -27,6 +32,8 @@ public class Sniper : MonoBehaviour
 	private bool isFirstShot = true;
 	private LineRenderer laserLine;
 	private Transform myBuilding;
+
+	private readonly List<Transform> civilianBuffer = new List<Transform>();
 
 	public void Init(Transform buildingTransform)
 	{
@@ -66,6 +73,7 @@ public class Sniper : MonoBehaviour
 		if (attackRange <= 0f) attackRange = 25f;
 		if (damage <= 0) damage = 100;
 		if (lifespan <= 0f) lifespan = 15f;
+		if (civilianThreatRadius <= 0f) civilianThreatRadius = 6f;
 
 		StartCoroutine(SniperRoutine());
 	}
@@ -108,7 +116,6 @@ public class Sniper : MonoBehaviour
 				laserLine.enabled = true;
 				float aimTimer = 0f;
 
-				// первый выстрел — быстрее
 				float currentAimDuration = isFirstShot
 					? Mathf.Max(aimDuration * firstShotAimFactor, 0.1f)
 					: aimDuration;
@@ -142,13 +149,11 @@ public class Sniper : MonoBehaviour
 
 				if (!targetLost && target != null)
 				{
-					// оформление выстрела
 					laserLine.startWidth = 0.15f;
 					laserLine.endWidth = 0.05f;
 					laserLine.startColor = Color.yellow;
 					laserLine.endColor = new Color(1f, 0.5f, 0f);
 
-					// пробиваем несколько целей по линии
 					ApplyPiercingDamage(target);
 
 					isFirstShot = false;
@@ -172,11 +177,19 @@ public class Sniper : MonoBehaviour
 		}
 	}
 
-	// Находим самую "опасную" цель (дальше всего продвинулась по Z) в радиусе и с LOS
+	// Находим зомби, который ближе всего к любому человеку/учёному.
+	// Если рядом с мирными никого нет, fallback = самый дальний по Z в радиусе и с LOS.
 	private Zombie FindTarget()
 	{
-		Zombie best = null;
-		float bestProgress = float.NegativeInfinity;
+		CollectCivilians();
+
+		Zombie bestThreatTarget = null;
+		float bestThreatScore = float.PositiveInfinity;
+
+		Zombie bestFallbackTarget = null;
+		float bestFallbackProgress = float.NegativeInfinity;
+
+		float threatRadiusSq = civilianThreatRadius * civilianThreatRadius;
 
 		foreach (var z in Zombie.AllZombies)
 		{
@@ -186,15 +199,73 @@ public class Sniper : MonoBehaviour
 			if (d > attackRange) continue;
 			if (!HasLineOfSight(z.transform)) continue;
 
+			// fallback-цель: как раньше, самый дальний по Z
 			float progressScore = z.transform.position.z;
-			if (progressScore > bestProgress)
+			if (progressScore > bestFallbackProgress)
 			{
-				bestProgress = progressScore;
-				best = z;
+				bestFallbackProgress = progressScore;
+				bestFallbackTarget = z;
+			}
+
+			// основной приоритет: зомби рядом с мирными
+			float nearestCivilianDistSq = GetNearestCivilianDistanceSq(z.transform.position);
+			if (nearestCivilianDistSq > threatRadiusSq) continue;
+
+			float score = nearestCivilianDistSq - (z.transform.position.z * progressBias);
+
+			if (score < bestThreatScore)
+			{
+				bestThreatScore = score;
+				bestThreatTarget = z;
 			}
 		}
 
-		return best;
+		if (bestThreatTarget != null)
+			return bestThreatTarget;
+
+		return bestFallbackTarget;
+	}
+
+	private void CollectCivilians()
+	{
+		civilianBuffer.Clear();
+
+		foreach (var h in Human.AllHumans)
+		{
+			if (h == null) continue;
+			if (!h.isActiveAndEnabled) continue;
+			civilianBuffer.Add(h.transform);
+		}
+
+		foreach (var s in Scientist.AllScientists)
+		{
+			if (s == null) continue;
+			if (!s.isActiveAndEnabled) continue;
+			civilianBuffer.Add(s.transform);
+		}
+	}
+
+	private float GetNearestCivilianDistanceSq(Vector3 zombiePos)
+	{
+		if (civilianBuffer.Count == 0)
+			return float.PositiveInfinity;
+
+		float bestDistSq = float.PositiveInfinity;
+
+		for (int i = 0; i < civilianBuffer.Count; i++)
+		{
+			Transform civ = civilianBuffer[i];
+			if (civ == null) continue;
+
+			Vector3 delta = civ.position - zombiePos;
+			delta.y = 0f; // считаем только по земле
+
+			float distSq = delta.sqrMagnitude;
+			if (distSq < bestDistSq)
+				bestDistSq = distSq;
+		}
+
+		return bestDistSq;
 	}
 
 	private bool HasLineOfSight(Transform target)
@@ -227,7 +298,6 @@ public class Sniper : MonoBehaviour
 		return true;
 	}
 
-	// Пробиваем несколько зомби по линии одного выстрела
 	private void ApplyPiercingDamage(Zombie primaryTarget)
 	{
 		Vector3 start = transform.position + Vector3.up * muzzleHeight;
@@ -235,9 +305,7 @@ public class Sniper : MonoBehaviour
 		Vector3 dir = (end - start).normalized;
 		float dist = Vector3.Distance(start, end);
 
-		// Берём все попадания вдоль луча до основной цели (чтобы не выстреливать дальше неё)
 		RaycastHit[] hits = Physics.RaycastAll(start, dir, dist);
-		// Сортируем по расстоянию от снайпера, чтобы обрабатывать по очереди
 		System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
 		int targetsHit = 0;
@@ -247,7 +315,6 @@ public class Sniper : MonoBehaviour
 		{
 			if (targetsHit >= maxPierceTargets) break;
 
-			// блокирующие объекты
 			if (hit.collider.CompareTag("Building") && (myBuilding == null || hit.collider.transform != myBuilding))
 			{
 				break;
@@ -264,8 +331,6 @@ public class Sniper : MonoBehaviour
 			}
 		}
 
-		// На всякий случай: если RaycastAll не нашёл primaryTarget (например, из-за слоёв),
-		// всё равно гарантируем урон первичной цели.
 		if (targetsHit == 0 && primaryTarget != null)
 		{
 			primaryTarget.TakeDamage(damage);
