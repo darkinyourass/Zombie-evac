@@ -1,7 +1,6 @@
 using UnityEngine;
 
 // [ГДЕ ВИСИТ]: На пустом объекте (InputManager) на боевой сцене.
-// [НАСТРОЙКИ]: В инспекторе назначить Invalid Placement Icon (красный крестик).
 public class InputManager : MonoBehaviour
 {
 	public static InputManager Instance;
@@ -17,7 +16,7 @@ public class InputManager : MonoBehaviour
 	// Подсветка здания линией
 	private LineRenderer buildingOutline;
 	private GameObject outlinedBuilding;
-	private Vector3[] buildingCorners = new Vector3[4]; // 0..3 - углы контура
+	private Vector3[] buildingCorners = new Vector3[4];
 
 	private void Awake() => Instance = this;
 
@@ -55,6 +54,12 @@ public class InputManager : MonoBehaviour
 	{
 		draggingCard = card;
 		isDragging = true;
+
+		// --- НОВОЕ: Включаем замедление времени ---
+		if (TimeManager.Instance != null)
+		{
+			TimeManager.Instance.StartSlowMo();
+		}
 	}
 
 	public void UpdateDragging(Vector2 screenPos)
@@ -69,7 +74,6 @@ public class InputManager : MonoBehaviour
 
 			bool canPlace = CanPlaceCardAtScreenPoint(draggingCard, screenPos, hit);
 
-			// Визуал валидности
 			if (!canPlace)
 			{
 				radiusCircle.startColor = new Color(1, 0, 0, 0.5f);
@@ -106,6 +110,12 @@ public class InputManager : MonoBehaviour
 		isDragging = false;
 		radiusCircle.enabled = false;
 
+		// --- НОВОЕ: Возвращаем время в норму ---
+		if (TimeManager.Instance != null)
+		{
+			TimeManager.Instance.StopSlowMo();
+		}
+
 		if (invalidPlacementIcon != null)
 			invalidPlacementIcon.SetActive(false);
 
@@ -118,7 +128,6 @@ public class InputManager : MonoBehaviour
 			return false;
 		}
 
-		// для Sniper не делаем повторный Raycast — используем только outlinedBuilding
 		if (cardToPlay.cardType == CardManager.CardType.Sniper)
 		{
 			bool placed = ExecuteSniperLogic(cardToPlay);
@@ -130,7 +139,6 @@ public class InputManager : MonoBehaviour
 			return placed;
 		}
 
-		// для остальных карт — как раньше
 		if (Input.mousePosition.y < Screen.height * 0.25f)
 		{
 			ClearBuildingOutline();
@@ -158,8 +166,6 @@ public class InputManager : MonoBehaviour
 		ClearBuildingOutline();
 		return false;
 	}
-
-	// -------- Подсветка здания и запоминание углов --------
 
 	private void HandleSniperOutline(RaycastHit hit, bool canPlace)
 	{
@@ -225,8 +231,6 @@ public class InputManager : MonoBehaviour
 		buildingOutline.enabled = false;
 		outlinedBuilding = null;
 	}
-
-	// -------- Валидация и радиус --------
 
 	private bool CanPlaceCardAtScreenPoint(CardData card, Vector2 screenPos, RaycastHit hit)
 	{
@@ -295,14 +299,10 @@ public class InputManager : MonoBehaviour
 		return radius;
 	}
 
-	// -------- Логика спавна Sniper --------
-
 	private bool ExecuteSniperLogic(CardData card)
 	{
-		// если дом не подсвечен — не ставим снайпера
 		if (outlinedBuilding == null) return false;
 
-		// центр подсвеченного прямоугольника
 		Vector3 center = (buildingCorners[0] + buildingCorners[1] + buildingCorners[2] + buildingCorners[3]) / 4f;
 
 		GameObject spawnedObject = Instantiate(card.cardPrefab, center, Quaternion.identity);
@@ -312,8 +312,6 @@ public class InputManager : MonoBehaviour
 
 		return true;
 	}
-
-	// -------- Логика спавна остальных карт --------
 
 	private void ExecuteCardLogic(CardData card, RaycastHit hit)
 	{
