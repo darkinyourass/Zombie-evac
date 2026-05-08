@@ -52,25 +52,46 @@ public class Zombie : MonoBehaviour
 	private Tween crowdShakeTween;
 
 	private Renderer[] allRenderers;
-	private Dictionary<Renderer, Color> originalColors = new Dictionary<Renderer, Color>();
 	private Coroutine hitFlashRoutine;
+	private Coroutine deathRoutine;
+
+	private MaterialPropertyBlock propertyBlock;
+	private Dictionary<Renderer, Color> originalColors = new Dictionary<Renderer, Color>();
+	private Dictionary<Renderer, int> colorPropertyIds = new Dictionary<Renderer, int>();
+
+	private Vector3 initialScale;
+	private Collider cachedCollider;
 
 	public bool IsDead => isDead;
 
 	protected virtual void Awake()
 	{
 		agent = GetComponent<NavMeshAgent>();
+		cachedCollider = GetComponent<Collider>();
 		currentHealth = maxHealth;
+		initialScale = transform.localScale;
 
 		allRenderers = GetComponentsInChildren<Renderer>();
-		foreach (var r in allRenderers)
+		propertyBlock = new MaterialPropertyBlock();
+
+		for (int i = 0; i < allRenderers.Length; i++)
 		{
+			Renderer r = allRenderers[i];
 			if (r == null) continue;
 
-			if (r.material.HasProperty("_BaseColor"))
-				originalColors[r] = r.material.GetColor("_BaseColor");
-			else if (r.material.HasProperty("_Color"))
-				originalColors[r] = r.material.color;
+			Material sharedMat = r.sharedMaterial;
+			if (sharedMat == null) continue;
+
+			if (sharedMat.HasProperty("_BaseColor"))
+			{
+				colorPropertyIds[r] = Shader.PropertyToID("_BaseColor");
+				originalColors[r] = sharedMat.GetColor("_BaseColor");
+			}
+			else if (sharedMat.HasProperty("_Color"))
+			{
+				colorPropertyIds[r] = Shader.PropertyToID("_Color");
+				originalColors[r] = sharedMat.GetColor("_Color");
+			}
 		}
 	}
 
@@ -92,7 +113,113 @@ public class Zombie : MonoBehaviour
 			agent.speed = moveSpeed;
 		}
 
+		StartBrainIfNeeded();
+	}
+
+	protected void StartBrainIfNeeded()
+	{
+		if (brainRoutine != null)
+		{
+			StopCoroutine(brainRoutine);
+		}
+
 		brainRoutine = StartCoroutine(Brain());
+	}
+
+	public virtual void OnTakenFromPool(Vector3 position, Quaternion rotation)
+	{
+		transform.position = position;
+		transform.rotation = rotation;
+		transform.localScale = initialScale;
+
+		isDead = false;
+		isAttacking = false;
+		isDistracted = false;
+		currentHealth = maxHealth;
+		nextChaosCheckTime = 0f;
+
+		currentBait = null;
+		currentBaitDestination = Vector3.zero;
+
+		KillCrowdTween();
+
+		if (hitFlashRoutine != null)
+		{
+			StopCoroutine(hitFlashRoutine);
+			hitFlashRoutine = null;
+		}
+
+		if (deathRoutine != null)
+		{
+			StopCoroutine(deathRoutine);
+			deathRoutine = null;
+		}
+
+		RestoreOriginalColors();
+
+		if (cachedCollider != null)
+		{
+			cachedCollider.enabled = true;
+		}
+
+		if (agent != null)
+		{
+			agent.enabled = true;
+			agent.speed = moveSpeed;
+			agent.isStopped = false;
+			agent.ResetPath();
+
+			if (NavMesh.SamplePosition(position, out NavMeshHit hit, 3f, NavMesh.AllAreas))
+			{
+				agent.Warp(hit.position);
+			}
+		}
+
+		StartBrainIfNeeded();
+	}
+
+	public virtual void OnReturnedToPool()
+	{
+		KillCrowdTween();
+
+		if (brainRoutine != null)
+		{
+			StopCoroutine(brainRoutine);
+			brainRoutine = null;
+		}
+
+		if (hitFlashRoutine != null)
+		{
+			StopCoroutine(hitFlashRoutine);
+			hitFlashRoutine = null;
+		}
+
+		if (deathRoutine != null)
+		{
+			StopCoroutine(deathRoutine);
+			deathRoutine = null;
+		}
+
+		RestoreOriginalColors();
+
+		currentBait = null;
+		currentBaitDestination = Vector3.zero;
+		isAttacking = false;
+		isDistracted = false;
+
+		if (agent != null && agent.enabled)
+		{
+			agent.isStopped = true;
+			agent.ResetPath();
+			agent.enabled = false;
+		}
+
+		if (cachedCollider != null)
+		{
+			cachedCollider.enabled = false;
+		}
+
+		transform.localScale = initialScale;
 	}
 
 	protected virtual IEnumerator Brain()
@@ -332,7 +459,11 @@ public class Zombie : MonoBehaviour
 		Human.AllHumans.Remove(human);
 		Destroy(human.gameObject);
 
-		if (zombiePrefab != null)
+		if (ZombiePool.Instance != null)
+		{
+			ZombiePool.Instance.Get(pos, rot);
+		}
+		else if (zombiePrefab != null)
 		{
 			Instantiate(zombiePrefab, pos, rot);
 		}
@@ -348,7 +479,11 @@ public class Zombie : MonoBehaviour
 		Scientist.AllScientists.Remove(scientist);
 		Destroy(scientist.gameObject);
 
-		if (zombiePrefab != null)
+		if (ZombiePool.Instance != null)
+		{
+			ZombiePool.Instance.Get(pos, rot);
+		}
+		else if (zombiePrefab != null)
 		{
 			Instantiate(zombiePrefab, pos, rot);
 		}
@@ -445,11 +580,11 @@ public class Zombie : MonoBehaviour
 		foreach (var r in allRenderers)
 		{
 			if (r == null) continue;
+			if (!colorPropertyIds.ContainsKey(r)) continue;
 
-			if (r.material.HasProperty("_BaseColor"))
-				r.material.SetColor("_BaseColor", color);
-			else if (r.material.HasProperty("_Color"))
-				r.material.color = color;
+			r.GetPropertyBlock(propertyBlock);
+			propertyBlock.SetColor(colorPropertyIds[r], color);
+			r.SetPropertyBlock(propertyBlock);
 		}
 	}
 
@@ -459,12 +594,17 @@ public class Zombie : MonoBehaviour
 
 		foreach (var r in allRenderers)
 		{
-			if (r == null || !originalColors.ContainsKey(r)) continue;
+			if (r == null) continue;
 
-			if (r.material.HasProperty("_BaseColor"))
-				r.material.SetColor("_BaseColor", originalColors[r]);
-			else if (r.material.HasProperty("_Color"))
-				r.material.color = originalColors[r];
+			if (!colorPropertyIds.ContainsKey(r) || !originalColors.ContainsKey(r))
+			{
+				r.SetPropertyBlock(null);
+				continue;
+			}
+
+			r.GetPropertyBlock(propertyBlock);
+			propertyBlock.SetColor(colorPropertyIds[r], originalColors[r]);
+			r.SetPropertyBlock(propertyBlock);
 		}
 	}
 
@@ -476,6 +616,7 @@ public class Zombie : MonoBehaviour
 		if (brainRoutine != null)
 		{
 			StopCoroutine(brainRoutine);
+			brainRoutine = null;
 		}
 
 		KillCrowdTween();
@@ -492,13 +633,12 @@ public class Zombie : MonoBehaviour
 			agent.enabled = false;
 		}
 
-		var col = GetComponent<Collider>();
-		if (col != null)
+		if (cachedCollider != null)
 		{
-			col.enabled = false;
+			cachedCollider.enabled = false;
 		}
 
-		StartCoroutine(DeathRoutine());
+		deathRoutine = StartCoroutine(DeathRoutine());
 	}
 
 	private IEnumerator DeathRoutine()
@@ -514,6 +654,13 @@ public class Zombie : MonoBehaviour
 			yield return null;
 		}
 
-		Destroy(gameObject);
+		if (ZombiePool.Instance != null)
+		{
+			ZombiePool.Instance.Release(this);
+		}
+		else
+		{
+			Destroy(gameObject);
+		}
 	}
 }

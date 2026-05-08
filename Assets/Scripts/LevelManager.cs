@@ -46,17 +46,15 @@ public class LevelManager : MonoBehaviour
 
 		int regionIdx = PlayerProfile.Instance.currentRegionIndex;
 		regionIdx = Mathf.Clamp(regionIdx, 0, PlayerProfile.Instance.allRegions.Count - 1);
-		RegionConfig currentRegion = PlayerProfile.Instance.allRegions[regionIdx];
 
+		RegionConfig currentRegion = PlayerProfile.Instance.allRegions[regionIdx];
 		currentLevelIndex = PlayerPrefs.GetInt("SelectedLevelToPlay", 0);
 
 		if (currentLevelIndex >= currentRegion.levels.Count)
 			currentLevelIndex = 0;
 
 		if (currentRegion.levels.Count > 0)
-		{
 			LoadLevel(currentRegion.levels[currentLevelIndex]);
-		}
 	}
 
 	public void LoadLevel(LevelData data)
@@ -87,7 +85,6 @@ public class LevelManager : MonoBehaviour
 			nightSpawnPoints.AddRange(daySpawnPoints);
 
 		SpawnPlanningIndicators();
-
 		SpawnHumans(data.humanCount);
 		SpawnScientists(data.scientistCount);
 
@@ -110,8 +107,7 @@ public class LevelManager : MonoBehaviour
 	private void ClearIndicators()
 	{
 		foreach (GameObject ind in activeIndicators)
-			if (ind != null)
-				Destroy(ind);
+			if (ind != null) Destroy(ind);
 
 		activeIndicators.Clear();
 	}
@@ -135,7 +131,7 @@ public class LevelManager : MonoBehaviour
 		GameObject prefabToUse = currentData.scientistPrefab != null ? currentData.scientistPrefab : defaultScientistPrefab;
 		if (prefabToUse == null)
 		{
-			Debug.LogWarning("[LevelManager] Не задан префаб учёного (Scientist).");
+			Debug.LogWarning("[LevelManager] Scientist prefab is not assigned.");
 			return;
 		}
 
@@ -164,13 +160,17 @@ public class LevelManager : MonoBehaviour
 		{
 			yield return new WaitForSeconds(currentData.initialSpawnDelay);
 
-			if (daySpawnPoints.Count > 0)
+			if (daySpawnPoints.Count <= 0) continue;
+
+			Transform spawnPoint = daySpawnPoints[Random.Range(0, daySpawnPoints.Count)];
+
+			if (ZombiePool.Instance != null)
 			{
-				Instantiate(
-					zombiePrefab,
-					daySpawnPoints[Random.Range(0, daySpawnPoints.Count)].position,
-					Quaternion.identity
-				);
+				ZombiePool.Instance.Get(spawnPoint.position, Quaternion.identity);
+			}
+			else
+			{
+				Instantiate(zombiePrefab, spawnPoint.position, Quaternion.identity);
 			}
 		}
 	}
@@ -180,7 +180,6 @@ public class LevelManager : MonoBehaviour
 		yield return new WaitForSeconds(currentData.bossSpawnDelay);
 
 		int bossesToSpawn = Mathf.Max(0, currentData.bossCount);
-
 		for (int i = 0; i < bossesToSpawn; i++)
 		{
 			SpawnOneBoss(i + 1);
@@ -192,7 +191,7 @@ public class LevelManager : MonoBehaviour
 
 	private void SpawnOneBoss(int bossNumber)
 	{
-		if (daySpawnPoints.Count == 0) return;
+		if (daySpawnPoints.Count <= 0) return;
 		if (currentData.bossPrefab == null) return;
 
 		Transform spawnPoint = daySpawnPoints[Random.Range(0, daySpawnPoints.Count)];
@@ -208,7 +207,7 @@ public class LevelManager : MonoBehaviour
 			boss.maxBuildingsPerRage = currentData.bossMaxBuildingsPerRage;
 		}
 
-		Debug.Log("[LevelManager] Босс заспавнен: " + bossObj.name);
+		Debug.Log("[LevelManager] Spawned boss: " + bossObj.name);
 	}
 
 	public void StartSuddenDeath()
@@ -241,13 +240,17 @@ public class LevelManager : MonoBehaviour
 		{
 			yield return new WaitForSeconds(currentData.suddenDeathSpawnRate);
 
-			if (nightSpawnPoints.Count > 0)
+			if (nightSpawnPoints.Count <= 0) continue;
+
+			Transform spawnPoint = nightSpawnPoints[Random.Range(0, nightSpawnPoints.Count)];
+
+			if (ZombiePool.Instance != null)
 			{
-				Instantiate(
-					zombiePrefab,
-					nightSpawnPoints[Random.Range(0, nightSpawnPoints.Count)].position,
-					Quaternion.identity
-				);
+				ZombiePool.Instance.Get(spawnPoint.position, Quaternion.identity);
+			}
+			else
+			{
+				Instantiate(zombiePrefab, spawnPoint.position, Quaternion.identity);
 			}
 		}
 	}
