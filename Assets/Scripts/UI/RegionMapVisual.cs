@@ -9,4 +9,7 @@ public class RegionMapVisual : MonoBehaviour
 	public Image[] lines;
 	public Image[] sectors;
 	public GameObject bossIcon;
+
+	[Header("Звезды уровней")]
+	public LevelNodeStarsView[] levelStarsViews;
 }

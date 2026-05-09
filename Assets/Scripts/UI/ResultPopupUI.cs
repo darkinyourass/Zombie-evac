@@ -16,6 +16,12 @@ public class ResultPopupUI : MonoBehaviour
 	[Tooltip("ѕеретащи сюда UI-объект плашки »ƒ≈јЋ№Ќќ! (—делай его выключенным по умолчанию)")]
 	public GameObject perfectBadge;
 
+	[Header("«везды результата")]
+	[SerializeField] private Image[] resultStars;
+	[SerializeField] private Sprite emptyStarSprite;
+	[SerializeField] private Sprite filledStarSprite;
+	[SerializeField] private float starAppearDelay = 0.18f;
+
 	[Header(" нопки")]
 	[SerializeField] private Transform btnX2;
 	[SerializeField] private GameObject btnNoThanks;
@@ -31,21 +37,30 @@ public class ResultPopupUI : MonoBehaviour
 	[SerializeField] private TextMeshProUGUI rewardCardName;
 
 	private Vector3 initialX2Scale;
+	private Sequence starsSequence;
+
+	private int shownEarnedStars;
+	private int shownPreviousStars;
 
 	private void Awake()
 	{
 		if (btnX2 != null)
-		{
 			initialX2Scale = btnX2.localScale;
-		}
 	}
 
-	// rescuedHumans Ц только обычные люди
-	// rescuedTotal Ц люди + учЄные
-	// rescuedScientists Ц только учЄные
-	public void Show(int rescuedHumans, int rescuedTotal, int rescuedScientists, CardData rewardCard, bool isPerfect = false)
+	public void Show(
+		int rescuedHumans,
+		int rescuedTotal,
+		int rescuedScientists,
+		CardData rewardCard,
+		bool isPerfect = false,
+		int earnedStars = 0,
+		int previousBestStars = 0)
 	{
 		gameObject.SetActive(true);
+
+		shownEarnedStars = Mathf.Clamp(earnedStars, 0, 3);
+		shownPreviousStars = Mathf.Clamp(previousBestStars, 0, 3);
 
 		if (totalResultText != null)
 			totalResultText.text = $"¬—≈√ќ —ѕј—≈Ќќ:\n{rescuedTotal}";
@@ -60,9 +75,7 @@ public class ResultPopupUI : MonoBehaviour
 			scientistsResultText.gameObject.SetActive(levelHasScientists);
 
 			if (levelHasScientists)
-			{
 				scientistsResultText.text = $"”„®Ќџ≈:\n{rescuedScientists}";
-			}
 		}
 
 		if (perfectBadge != null)
@@ -77,6 +90,9 @@ public class ResultPopupUI : MonoBehaviour
 			CancelInvoke(nameof(ShowNoThanksButton));
 			Invoke(nameof(ShowNoThanksButton), noThanksDelay);
 		}
+
+		ResetStarsVisual();
+		PlayStarsAnimation();
 
 		if (isPerfect && perfectBadge != null)
 		{
@@ -106,13 +122,9 @@ public class ResultPopupUI : MonoBehaviour
 			if (rewardCardName != null)
 			{
 				if (isNew)
-				{
 					rewardCardName.text = $"Ќќ¬јя  ј–“ј!\n<color=yellow>{rewardCard.cardName}</color>";
-				}
 				else
-				{
 					rewardCardName.text = $"ќ— ќЋќ !\n<color=orange>{rewardCard.cardName}</color>";
-				}
 			}
 
 			StartCoroutine(AnimateRewardPopup());
@@ -120,6 +132,83 @@ public class ResultPopupUI : MonoBehaviour
 		else if (rewardPanel != null)
 		{
 			rewardPanel.SetActive(false);
+		}
+	}
+
+	private void ResetStarsVisual()
+	{
+		if (starsSequence != null && starsSequence.IsActive())
+			starsSequence.Kill();
+
+		if (resultStars == null) return;
+
+		for (int i = 0; i < resultStars.Length; i++)
+		{
+			if (resultStars[i] == null) continue;
+
+			resultStars[i].transform.DOKill();
+			Color c = resultStars[i].color;
+			c.a = 1f;
+			resultStars[i].color = c;
+
+			if (i < shownPreviousStars)
+			{
+				if (filledStarSprite != null)
+					resultStars[i].sprite = filledStarSprite;
+
+				resultStars[i].transform.localScale = Vector3.one;
+			}
+			else
+			{
+				if (emptyStarSprite != null)
+					resultStars[i].sprite = emptyStarSprite;
+
+				resultStars[i].transform.localScale = Vector3.one * 0.8f;
+			}
+		}
+	}
+
+	private void PlayStarsAnimation()
+	{
+		if (resultStars == null || resultStars.Length == 0) return;
+
+		starsSequence = DOTween.Sequence();
+
+		for (int i = 0; i < resultStars.Length; i++)
+		{
+			if (resultStars[i] == null) continue;
+
+			int starIndex = i;
+
+			if (starIndex < shownPreviousStars)
+			{
+				resultStars[starIndex].transform.localScale = Vector3.one;
+				continue;
+			}
+
+			if (starIndex < shownEarnedStars)
+			{
+				resultStars[starIndex].transform.localScale = Vector3.zero;
+
+				starsSequence.AppendInterval(starAppearDelay);
+				starsSequence.AppendCallback(() =>
+				{
+					if (resultStars[starIndex] == null) return;
+					if (filledStarSprite != null)
+						resultStars[starIndex].sprite = filledStarSprite;
+				});
+
+				starsSequence.Append(resultStars[starIndex].transform.DOScale(1.2f, 0.18f).SetEase(Ease.OutBack));
+				starsSequence.Append(resultStars[starIndex].transform.DOScale(1f, 0.12f).SetEase(Ease.InOutSine));
+				starsSequence.Join(resultStars[starIndex].transform.DORotate(new Vector3(0f, 0f, 12f), 0.1f).SetLoops(2, LoopType.Yoyo));
+			}
+			else
+			{
+				if (emptyStarSprite != null)
+					resultStars[starIndex].sprite = emptyStarSprite;
+
+				resultStars[starIndex].transform.localScale = Vector3.one * 0.8f;
+			}
 		}
 	}
 
@@ -166,5 +255,13 @@ public class ResultPopupUI : MonoBehaviour
 		}
 
 		SceneManager.LoadScene("MainMenu");
+	}
+
+	private void OnDisable()
+	{
+		if (starsSequence != null && starsSequence.IsActive())
+			starsSequence.Kill();
+
+		transform.DOKill();
 	}
 }

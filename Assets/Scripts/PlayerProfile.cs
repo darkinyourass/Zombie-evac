@@ -1,5 +1,5 @@
 using UnityEngine;
-using System; // <-- Обязательно для событий
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -7,18 +7,23 @@ public class PlayerProfile : MonoBehaviour
 {
 	public static PlayerProfile Instance;
 
-	// --- НОВОЕ: Событие обновления профиля ---
 	public Action OnProfileUpdated;
 
 	[Header("Данные игрока")]
-	public int totalCurrency = 0; // Люди (Софт)
-	public int totalScientistsCurrency = 0; // Ученые (Хард)
+	public int totalCurrency = 0;
+	public int totalScientistsCurrency = 0;
 
 	[Header("Прогресс карты (Saga)")]
 	public int currentRegionIndex = 0;
 	public int currentLevelIndex = 0;
 	public bool hasPendingMapAnimation = false;
 	public bool hasPendingRegionAnimation = false;
+
+	[Header("Ожидающая анимация звёзд")]
+	public bool hasPendingStarAnimation = false;
+	public string pendingStarLevelId = "";
+	public int pendingStarOldValue = 0;
+	public int pendingStarNewValue = 0;
 
 	[Header("База Регионов")]
 	public List<RegionConfig> allRegions = new List<RegionConfig>();
@@ -28,6 +33,12 @@ public class PlayerProfile : MonoBehaviour
 	public List<CardData> starterCards = new List<CardData>();
 	public List<CardProgress> ownedCardsProgress = new List<CardProgress>();
 	public CardData[] currentDeck = new CardData[5];
+
+	[Header("Сохранённые звёзды")]
+	public List<LevelStarsProgress> levelStarsProgress = new List<LevelStarsProgress>();
+
+	[Header("Сохранённые награды регионов")]
+	public List<RegionRewardClaimState> regionRewardClaims = new List<RegionRewardClaimState>();
 
 	private void Awake()
 	{
@@ -50,11 +61,30 @@ public class PlayerProfile : MonoBehaviour
 		hasPendingMapAnimation = PlayerPrefs.GetInt("PendingMapAnim", 0) == 1;
 		hasPendingRegionAnimation = PlayerPrefs.GetInt("PendingRegionAnim", 0) == 1;
 
+		hasPendingStarAnimation = PlayerPrefs.GetInt("PendingStarAnim", 0) == 1;
+		pendingStarLevelId = PlayerPrefs.GetString("PendingStarLevelId", "");
+		pendingStarOldValue = PlayerPrefs.GetInt("PendingStarOldValue", 0);
+		pendingStarNewValue = PlayerPrefs.GetInt("PendingStarNewValue", 0);
+
 		if (PlayerPrefs.HasKey("CardsProgress"))
 		{
 			string json = PlayerPrefs.GetString("CardsProgress");
 			var wrapper = JsonUtility.FromJson<SerializationWrapper<CardProgress>>(json);
 			if (wrapper != null && wrapper.target != null) ownedCardsProgress = wrapper.target;
+		}
+
+		if (PlayerPrefs.HasKey("LevelStarsProgress"))
+		{
+			string json = PlayerPrefs.GetString("LevelStarsProgress");
+			var wrapper = JsonUtility.FromJson<SerializationWrapper<LevelStarsProgress>>(json);
+			if (wrapper != null && wrapper.target != null) levelStarsProgress = wrapper.target;
+		}
+
+		if (PlayerPrefs.HasKey("RegionRewardClaims"))
+		{
+			string json = PlayerPrefs.GetString("RegionRewardClaims");
+			var wrapper = JsonUtility.FromJson<SerializationWrapper<RegionRewardClaimState>>(json);
+			if (wrapper != null && wrapper.target != null) regionRewardClaims = wrapper.target;
 		}
 
 		string deckStr = PlayerPrefs.GetString("CurrentDeck", "");
@@ -63,7 +93,9 @@ public class PlayerProfile : MonoBehaviour
 			string[] deckIds = deckStr.Split(',');
 			for (int i = 0; i < 5; i++)
 			{
-				currentDeck[i] = (i < deckIds.Length && deckIds[i] != "None") ? allAvailableCards.Find(c => c.name == deckIds[i]) : null;
+				currentDeck[i] = (i < deckIds.Length && deckIds[i] != "None")
+					? allAvailableCards.Find(c => c.name == deckIds[i])
+					: null;
 			}
 		}
 		else GiveStarterCards();
@@ -79,16 +111,27 @@ public class PlayerProfile : MonoBehaviour
 		PlayerPrefs.SetInt("PendingMapAnim", hasPendingMapAnimation ? 1 : 0);
 		PlayerPrefs.SetInt("PendingRegionAnim", hasPendingRegionAnimation ? 1 : 0);
 
+		PlayerPrefs.SetInt("PendingStarAnim", hasPendingStarAnimation ? 1 : 0);
+		PlayerPrefs.SetString("PendingStarLevelId", pendingStarLevelId);
+		PlayerPrefs.SetInt("PendingStarOldValue", pendingStarOldValue);
+		PlayerPrefs.SetInt("PendingStarNewValue", pendingStarNewValue);
+
 		string progressJson = JsonUtility.ToJson(new SerializationWrapper<CardProgress>(ownedCardsProgress));
 		PlayerPrefs.SetString("CardsProgress", progressJson);
 
-		string[] deckIds = new string[5];
-		for (int i = 0; i < 5; i++) deckIds[i] = currentDeck[i] != null ? currentDeck[i].name : "None";
-		PlayerPrefs.SetString("CurrentDeck", string.Join(",", deckIds));
+		string starsJson = JsonUtility.ToJson(new SerializationWrapper<LevelStarsProgress>(levelStarsProgress));
+		PlayerPrefs.SetString("LevelStarsProgress", starsJson);
 
+		string rewardClaimsJson = JsonUtility.ToJson(new SerializationWrapper<RegionRewardClaimState>(regionRewardClaims));
+		PlayerPrefs.SetString("RegionRewardClaims", rewardClaimsJson);
+
+		string[] deckIds = new string[5];
+		for (int i = 0; i < 5; i++)
+			deckIds[i] = currentDeck[i] != null ? currentDeck[i].name : "None";
+
+		PlayerPrefs.SetString("CurrentDeck", string.Join(",", deckIds));
 		PlayerPrefs.Save();
 
-		// --- НОВОЕ: Заставляем UI обновиться! ---
 		OnProfileUpdated?.Invoke();
 	}
 
@@ -127,23 +170,152 @@ public class PlayerProfile : MonoBehaviour
 	public void AddCardReward(CardData newCard)
 	{
 		if (newCard == null) return;
+
 		CardProgress progress = ownedCardsProgress.Find(p => p.cardId == newCard.name);
 		if (progress == null)
 		{
 			progress = new CardProgress(newCard.name);
 			ownedCardsProgress.Add(progress);
+
 			for (int i = 0; i < 5; i++)
 			{
-				if (currentDeck[i] == null) { currentDeck[i] = newCard; break; }
+				if (currentDeck[i] == null)
+				{
+					currentDeck[i] = newCard;
+					break;
+				}
 			}
 		}
 		else progress.collectedShards++;
+
 		SaveProfile();
+	}
+
+	public int GetSavedStarsForLevel(string levelId)
+	{
+		LevelStarsProgress data = levelStarsProgress.Find(x => x.levelId == levelId);
+		return data != null ? Mathf.Clamp(data.stars, 0, 3) : 0;
+	}
+
+	public int GetSavedStarsForLevel(LevelData levelData)
+	{
+		if (levelData == null) return 0;
+		return GetSavedStarsForLevel(levelData.name);
+	}
+
+	public bool TrySetLevelStars(string levelId, int newStars, out int oldStars)
+	{
+		oldStars = 0;
+		if (string.IsNullOrEmpty(levelId)) return false;
+
+		newStars = Mathf.Clamp(newStars, 0, 3);
+
+		LevelStarsProgress data = levelStarsProgress.Find(x => x.levelId == levelId);
+		if (data == null)
+		{
+			data = new LevelStarsProgress
+			{
+				levelId = levelId,
+				stars = newStars
+			};
+			levelStarsProgress.Add(data);
+			oldStars = 0;
+		}
+		else
+		{
+			oldStars = Mathf.Clamp(data.stars, 0, 3);
+			if (newStars <= oldStars)
+				return false;
+
+			data.stars = newStars;
+		}
+
+		hasPendingStarAnimation = true;
+		pendingStarLevelId = levelId;
+		pendingStarOldValue = oldStars;
+		pendingStarNewValue = newStars;
+
+		SaveProfile();
+		return true;
+	}
+
+	public void ClearPendingStarAnimation()
+	{
+		hasPendingStarAnimation = false;
+		pendingStarLevelId = "";
+		pendingStarOldValue = 0;
+		pendingStarNewValue = 0;
+		SaveProfile();
+	}
+
+	public int GetRegionTotalEarnedStars(int regionIndex)
+	{
+		if (regionIndex < 0 || regionIndex >= allRegions.Count) return 0;
+
+		int total = 0;
+		var region = allRegions[regionIndex];
+		if (region == null || region.levels == null) return 0;
+
+		for (int i = 0; i < region.levels.Count; i++)
+		{
+			if (region.levels[i] == null) continue;
+			total += GetSavedStarsForLevel(region.levels[i].name);
+		}
+
+		return total;
+	}
+
+	public int GetRegionMaxStars(int regionIndex)
+	{
+		if (regionIndex < 0 || regionIndex >= allRegions.Count) return 0;
+		var region = allRegions[regionIndex];
+		if (region == null || region.levels == null) return 0;
+
+		return region.levels.Count * 3;
+	}
+
+	public float GetRegionProgress01(int regionIndex)
+	{
+		int max = GetRegionMaxStars(regionIndex);
+		if (max <= 0) return 0f;
+
+		int current = GetRegionTotalEarnedStars(regionIndex);
+		return Mathf.Clamp01((float)current / max);
+	}
+
+	public bool IsRegionRewardClaimed(int regionIndex, int rewardIndex)
+	{
+		RegionRewardClaimState state = regionRewardClaims.Find(x => x.regionIndex == regionIndex);
+		if (state == null) return false;
+
+		return state.claimedRewardIndices.Contains(rewardIndex);
+	}
+
+	public void MarkRegionRewardClaimed(int regionIndex, int rewardIndex)
+	{
+		RegionRewardClaimState state = regionRewardClaims.Find(x => x.regionIndex == regionIndex);
+		if (state == null)
+		{
+			state = new RegionRewardClaimState
+			{
+				regionIndex = regionIndex,
+				claimedRewardIndices = new List<int>()
+			};
+			regionRewardClaims.Add(state);
+		}
+
+		if (!state.claimedRewardIndices.Contains(rewardIndex))
+		{
+			state.claimedRewardIndices.Add(rewardIndex);
+			SaveProfile();
+		}
 	}
 
 	private void GiveStarterCards()
 	{
-		foreach (CardData card in starterCards) if (card != null) AddCardReward(card);
+		foreach (CardData card in starterCards)
+			if (card != null) AddCardReward(card);
+
 		SaveProfile();
 	}
 
@@ -152,13 +324,23 @@ public class PlayerProfile : MonoBehaviour
 	{
 		PlayerPrefs.DeleteAll();
 		ownedCardsProgress.Clear();
-		for (int i = 0; i < 5; i++) currentDeck[i] = null;
+		levelStarsProgress.Clear();
+		regionRewardClaims.Clear();
+
+		for (int i = 0; i < 5; i++)
+			currentDeck[i] = null;
+
 		totalCurrency = 0;
 		totalScientistsCurrency = 0;
 		currentRegionIndex = 0;
 		currentLevelIndex = 0;
 		hasPendingMapAnimation = false;
 		hasPendingRegionAnimation = false;
+
+		hasPendingStarAnimation = false;
+		pendingStarLevelId = "";
+		pendingStarOldValue = 0;
+		pendingStarNewValue = 0;
 	}
 }
 
@@ -167,4 +349,18 @@ public class SerializationWrapper<T>
 {
 	public List<T> target;
 	public SerializationWrapper(List<T> target) => this.target = target;
+}
+
+[System.Serializable]
+public class LevelStarsProgress
+{
+	public string levelId;
+	public int stars;
+}
+
+[System.Serializable]
+public class RegionRewardClaimState
+{
+	public int regionIndex;
+	public List<int> claimedRewardIndices = new List<int>();
 }

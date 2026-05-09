@@ -17,6 +17,23 @@ public class LevelData : ScriptableObject
 	[Tooltip("Минимальное количество спасённых людей для победы")]
 	public int requiredRescuedHumans = 10;
 
+	[Header("3 звезды")]
+	[Tooltip("1 звезда. Если 0, будет использоваться requiredRescuedHumans")]
+	public int star1RequiredHumans = 0;
+
+	[Tooltip("2 звезды. Если 0, будет использоваться requiredRescuedHumans + 5")]
+	public int star2RequiredHumans = 0;
+
+	[Tooltip("Описание 3 звезды. Сама логика = perfect clear")]
+	public string star3Description = "Пройти идеально";
+
+	[Header("Отображение на Mission Popup")]
+	public string missionTitleOverride = "";
+	public Sprite missionIcon;
+
+	[TextArea(2, 4)]
+	public string missionDescription;
+
 	[Header("Настройки Камеры Уровня")]
 	public CameraType cameraType = CameraType.Perspective;
 	public Vector3 cameraPosition = new Vector3(0, 20, -15);
@@ -62,4 +79,22 @@ public class LevelData : ScriptableObject
 
 	[Tooltip("Сколько максимум зданий может сломать за одну ярость")]
 	public int bossMaxBuildingsPerRage = 1;
+
+	public int GetStar1Target()
+	{
+		return star1RequiredHumans > 0 ? star1RequiredHumans : requiredRescuedHumans;
+	}
+
+	public int GetStar2Target()
+	{
+		return star2RequiredHumans > 0 ? star2RequiredHumans : requiredRescuedHumans + 5;
+	}
+
+	public string GetMissionTitle(int regionIndex, int levelIndex)
+	{
+		if (!string.IsNullOrEmpty(missionTitleOverride))
+			return missionTitleOverride;
+
+		return $"MISSION {regionIndex + 1}-{levelIndex + 1}";
+	}
 }

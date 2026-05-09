@@ -21,3 +21,25 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a32d823efe6862b40a50e0a09f0e2048, type: 2}
   - {fileID: 11400000, guid: d43fe430df81fa1489980847ce769282, type: 2}
   - {fileID: 11400000, guid: 7fcadc7d9a4cec14aa132a9d2cc9352e, type: 2}
+  trophyRoadRewards:
+  - rewardType: 0
+    progressThreshold: 0.25
+    softCurrencyAmount: 100
+    lootboxReward: {fileID: 0}
+    cardReward: {fileID: 0}
+    skinRewardIcon: {fileID: 0}
+    customRewardId: 
+  - rewardType: 0
+    progressThreshold: 0.5
+    softCurrencyAmount: 500
+    lootboxReward: {fileID: 0}
+    cardReward: {fileID: 0}
+    skinRewardIcon: {fileID: 0}
+    customRewardId: 
+  - rewardType: 1
+    progressThreshold: 1
+    softCurrencyAmount: 0
+    lootboxReward: {fileID: 11400000, guid: aedfda23cd5572c4dac0817ed913988e, type: 2}
+    cardReward: {fileID: 0}
+    skinRewardIcon: {fileID: 0}
+    customRewardId: 

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 public class GameManager : MonoBehaviour
 {
 	public static GameManager Instance;
+
 	public enum GameState { Planning, Playing, SuddenDeath, GameOver, Lose }
 	public GameState State = GameState.Planning;
 
@@ -42,7 +43,6 @@ public class GameManager : MonoBehaviour
 		UIManager.Instance.UpdateRescuedCount(GetTotalRescued(), requiredHumans, false);
 	}
 
-	// ===== ВЫЗЫВАЕТСЯ ТОЛЬКО ТРАНСПОРТОМ =====
 	public void AddRescuedFromTransport(int humans, int scientists, Vector3 transportWorldPos)
 	{
 		if (State == GameState.GameOver || State == GameState.Lose) return;
@@ -56,10 +56,8 @@ public class GameManager : MonoBehaviour
 		UIManager.Instance.SpawnFlyingText(transportWorldPos, total);
 	}
 
-	// ===== СТАРЫЕ ОБЁРТКИ ДЛЯ СОВМЕСТИМОСТИ =====
 	public void AddRescuedHumans(int count, Vector3 transportWorldPos)
 	{
-		// Старый код считает только людей — для совместимости учёных не добавляем
 		AddRescuedFromTransport(count, 0, transportWorldPos);
 	}
 
@@ -68,14 +66,12 @@ public class GameManager : MonoBehaviour
 		AddRescuedFromTransport(0, count, transportWorldPos);
 	}
 
-	// ===== FLYING TEXT ДОЛЕТЕЛ =====
 	public void OnFlyingTextReached(int totalAmount)
 	{
 		int totalPending = pendingHumans + pendingScientists;
 
 		if (totalPending <= 0)
 		{
-			// На всякий случай всё кидаем в людей
 			rescuedHumans += totalAmount;
 		}
 		else
@@ -95,7 +91,6 @@ public class GameManager : MonoBehaviour
 		CheckWinLoseCondition();
 	}
 
-	// Этот метод больше не используется, но оставим, чтобы не ловить null-референсы, если где-то старый вызов
 	public void OnFlyingScientistTextReached(int amount) { }
 
 	public void SetupTimer(float time)
@@ -108,6 +103,7 @@ public class GameManager : MonoBehaviour
 	public void StartGame()
 	{
 		if (State != GameState.Planning) return;
+
 		State = GameState.Playing;
 		LevelManager.Instance.StartInitialSpawns();
 	}
@@ -227,6 +223,26 @@ public class GameManager : MonoBehaviour
 		}
 	}
 
+	private int CalculateEarnedStars(bool isPerfect)
+	{
+		LevelData level = LevelManager.Instance.currentData;
+		if (level == null) return 0;
+
+		int rescuedTotal = GetTotalRescued();
+		int stars = 0;
+
+		if (rescuedTotal >= level.GetStar1Target())
+			stars++;
+
+		if (rescuedTotal >= level.GetStar2Target())
+			stars++;
+
+		if (isPerfect)
+			stars++;
+
+		return Mathf.Clamp(stars, 0, 3);
+	}
+
 	public void EndLevel(bool isPerfect = false)
 	{
 		State = GameState.GameOver;
@@ -246,12 +262,26 @@ public class GameManager : MonoBehaviour
 			if (LevelManager.Instance.currentData.levelRewardLootbox != null)
 			{
 				droppedCard = LevelManager.Instance.currentData.levelRewardLootbox.OpenBox();
-				if (droppedCard != null) PlayerProfile.Instance.AddCardReward(droppedCard);
+				if (droppedCard != null)
+					PlayerProfile.Instance.AddCardReward(droppedCard);
 			}
 		}
 
+		int earnedStars = CalculateEarnedStars(isPerfect);
+		int previousBestStars = PlayerProfile.Instance.GetSavedStarsForLevel(LevelManager.Instance.currentData);
+
+		PlayerProfile.Instance.TrySetLevelStars(LevelManager.Instance.currentData.name, earnedStars, out int oldStarsFromSave);
 		PlayerProfile.Instance.SaveProfile();
-		UIManager.Instance.ShowResultPopup(rescuedHumans, GetTotalRescued(), rescuedScientists, droppedCard, isPerfect);
+
+		UIManager.Instance.ShowResultPopup(
+			rescuedHumans,
+			GetTotalRescued(),
+			rescuedScientists,
+			droppedCard,
+			isPerfect,
+			earnedStars,
+			previousBestStars
+		);
 	}
 
 	public void RestartLevel()

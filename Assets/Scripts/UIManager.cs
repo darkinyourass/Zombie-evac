@@ -161,8 +161,26 @@ public class UIManager : MonoBehaviour
 		if (losePopup != null) losePopup.SetActive(true);
 	}
 
-	public void ShowResultPopup(int rescuedHumans, int rescuedTotal, int rescuedScientists, CardData reward = null, bool isPerfect = false)
+	public void ShowResultPopup(
+	int rescuedHumans,
+	int rescuedTotal,
+	int rescuedScientists,
+	CardData reward = null,
+	bool isPerfect = false,
+	int earnedStars = 0,
+	int previousBestStars = 0)
 	{
-		if (resultPopup != null) resultPopup.Show(rescuedHumans, rescuedTotal, rescuedScientists, reward, isPerfect);
+		if (resultPopup != null)
+		{
+			resultPopup.Show(
+				rescuedHumans,
+				rescuedTotal,
+				rescuedScientists,
+				reward,
+				isPerfect,
+				earnedStars,
+				previousBestStars
+			);
+		}
 	}
 }

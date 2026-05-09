@@ -15,10 +15,16 @@ MonoBehaviour:
   levelPrefab: {fileID: 4058927015439930953, guid: 6f2cdca8843941f448c476e4431a5f3a, type: 3}
   humanCount: 100
   levelTimer: 30
-  initialZombies: 150
+  initialZombies: 5
   initialSpawnDelay: 0.5
   suddenDeathSpawnRate: 0.2
   requiredRescuedHumans: 10
+  star1RequiredHumans: 10
+  star2RequiredHumans: 20
+  star3Description: "\u041F\u0440\u043E\u0439\u0442\u0438 \u0438\u0434\u0435\u0430\u043B\u044C\u043D\u043E"
+  missionTitleOverride: 
+  missionIcon: {fileID: -7343220986905845580, guid: 215687feeab0b7445b4a1cd86c82c2e1, type: 3}
+  missionDescription: 
   cameraType: 0
   cameraPosition: {x: -2.78, y: 40.6, z: 2.24}
   cameraRotation: {x: 90, y: 0, z: 0}
