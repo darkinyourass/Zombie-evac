@@ -15,7 +15,7 @@ MonoBehaviour:
   levelPrefab: {fileID: 4058927015439930953, guid: 27bd523dbc07f094ca2bb2fffde543fb, type: 3}
   humanCount: 50
   levelTimer: 30
-  initialZombies: 10
+  initialZombies: 5
   initialSpawnDelay: 0.5
   suddenDeathSpawnRate: 0.5
   requiredRescuedHumans: 10

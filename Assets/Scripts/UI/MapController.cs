@@ -35,12 +35,18 @@ public class MapController : MonoBehaviour
 	private GameObject currentSpawnedPrefab;
 	private Dictionary<Image, Vector3> initialSectorScales = new Dictionary<Image, Vector3>();
 
+	private int previewRegionIndex = -1;
+
 	private void Start()
 	{
 		canvasGroup = GetComponent<CanvasGroup>();
 		if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
 		BindRewardMilestones();
+
+		if (PlayerProfile.Instance != null)
+			previewRegionIndex = PlayerProfile.Instance.currentRegionIndex;
+
 		RefreshMap();
 	}
 
@@ -62,45 +68,61 @@ public class MapController : MonoBehaviour
 		}
 	}
 
-	private void RefreshMap()
+	public void RefreshMap()
 	{
 		if (PlayerProfile.Instance == null || PlayerProfile.Instance.allRegions.Count == 0) return;
 
 		bool animateRegion = PlayerProfile.Instance.hasPendingRegionAnimation;
-		int regionIdx = PlayerProfile.Instance.currentRegionIndex;
-		if (animateRegion) regionIdx = Mathf.Max(0, regionIdx - 1);
+		int realRegionIndex = PlayerProfile.Instance.currentRegionIndex;
 
+		if (previewRegionIndex < 0)
+			previewRegionIndex = realRegionIndex;
+
+		int regionIdx = animateRegion ? Mathf.Max(0, realRegionIndex - 1) : previewRegionIndex;
 		regionIdx = Mathf.Clamp(regionIdx, 0, PlayerProfile.Instance.allRegions.Count - 1);
-		RegionConfig regionToDisplay = PlayerProfile.Instance.allRegions[regionIdx];
 
+		RegionConfig regionToDisplay = PlayerProfile.Instance.allRegions[regionIdx];
 		SpawnOrUpdateRegionVisual(regionToDisplay);
 
 		if (currentVisualMap == null) return;
 
-		int actualLevel = PlayerProfile.Instance.currentLevelIndex;
-		bool animateStep = PlayerProfile.Instance.hasPendingMapAnimation;
+		bool isUnlockedRegion = regionIdx <= realRegionIndex;
+
+		int actualLevel = isUnlockedRegion && regionIdx == realRegionIndex
+			? PlayerProfile.Instance.currentLevelIndex
+			: 0;
+
+		bool animateStep = isUnlockedRegion &&
+						   regionIdx == realRegionIndex &&
+						   PlayerProfile.Instance.hasPendingMapAnimation;
 
 		int visualLevel = animateStep ? Mathf.Max(0, actualLevel - 1) : actualLevel;
 		if (animateRegion) visualLevel = 5;
 
-		UpdateMapVisualState(visualLevel);
-		UpdateAllNodeStars(regionIdx);
-		UpdateRegionProgress(regionIdx, false);
+		UpdateMapVisualState(visualLevel, isUnlockedRegion);
+		UpdateAllNodeStars(regionIdx, isUnlockedRegion);
+		UpdateRegionProgress(regionIdx, false, isUnlockedRegion);
 
-		if (animateRegion) StartCoroutine(RegionTransitionRoutine());
+		if (animateRegion)
+			StartCoroutine(RegionTransitionRoutine());
 		else if (animateStep && actualLevel <= currentVisualMap.levelNodes.Length)
 			StartCoroutine(AnimateProgressRoutine(regionIdx, visualLevel, actualLevel));
-		else if (PlayerProfile.Instance.hasPendingStarAnimation)
+		else if (isUnlockedRegion && regionIdx == realRegionIndex && PlayerProfile.Instance.hasPendingStarAnimation)
 			StartCoroutine(PlayPendingStarAnimationOnly(regionIdx));
 	}
 
-	private void UpdateMapVisualState(int visualLevel)
+	private void UpdateMapVisualState(int visualLevel, bool isUnlockedRegion)
 	{
 		for (int i = 0; i < currentVisualMap.levelNodes.Length; i++)
 		{
-			Color stateColor = GetColorForState(i, visualLevel);
+			Color stateColor = isUnlockedRegion ? GetColorForState(i, visualLevel) : lockedColor;
+
 			if (currentVisualMap.levelNodes[i] != null)
-				currentVisualMap.levelNodes[i].GetComponent<Image>().color = stateColor;
+			{
+				Image nodeImage = currentVisualMap.levelNodes[i].GetComponent<Image>();
+				if (nodeImage != null)
+					nodeImage.color = stateColor;
+			}
 
 			if (i < currentVisualMap.sectors.Length && currentVisualMap.sectors[i] != null)
 			{
@@ -113,11 +135,23 @@ public class MapController : MonoBehaviour
 		for (int i = 0; i < currentVisualMap.lines.Length; i++)
 		{
 			if (currentVisualMap.lines[i] == null) continue;
-			currentVisualMap.lines[i].color = (i < visualLevel) ? completedColor : lockedColor;
+			currentVisualMap.lines[i].color = (isUnlockedRegion && i < visualLevel) ? completedColor : lockedColor;
 		}
 
-		if (visualLevel < currentVisualMap.levelNodes.Length)
-			playerToken.position = currentVisualMap.levelNodes[visualLevel].transform.position + tokenOffset;
+		if (currentVisualMap.bossIcon != null)
+		{
+			Image bossIconImage = currentVisualMap.bossIcon.GetComponent<Image>();
+			if (bossIconImage != null)
+				bossIconImage.color = isUnlockedRegion ? Color.white : new Color(0.45f, 0.45f, 0.45f, 1f);
+		}
+
+		if (playerToken != null)
+		{
+			playerToken.gameObject.SetActive(isUnlockedRegion);
+
+			if (isUnlockedRegion && visualLevel < currentVisualMap.levelNodes.Length)
+				playerToken.position = currentVisualMap.levelNodes[visualLevel].transform.position + tokenOffset;
+		}
 	}
 
 	private void SpawnOrUpdateRegionVisual(RegionConfig config)
@@ -125,7 +159,8 @@ public class MapController : MonoBehaviour
 		if (currentSpawnedPrefab != null && currentSpawnedPrefab.name == config.regionUIPrefab.name + "(Clone)")
 			return;
 
-		if (currentSpawnedPrefab != null) Destroy(currentSpawnedPrefab);
+		if (currentSpawnedPrefab != null)
+			Destroy(currentSpawnedPrefab);
 
 		currentSpawnedPrefab = Instantiate(config.regionUIPrefab, mapSpawnContainer);
 		currentVisualMap = currentSpawnedPrefab.GetComponent<RegionMapVisual>();
@@ -147,7 +182,7 @@ public class MapController : MonoBehaviour
 		}
 	}
 
-	private void UpdateAllNodeStars(int regionIndex)
+	private void UpdateAllNodeStars(int regionIndex, bool isUnlockedRegion)
 	{
 		if (currentVisualMap == null || currentVisualMap.levelStarsViews == null) return;
 		if (PlayerProfile.Instance == null) return;
@@ -155,13 +190,22 @@ public class MapController : MonoBehaviour
 		RegionConfig region = PlayerProfile.Instance.allRegions[regionIndex];
 		if (region == null || region.levels == null) return;
 
-		bool hasPending = PlayerProfile.Instance.hasPendingStarAnimation;
+		bool hasPending = isUnlockedRegion &&
+						  regionIndex == PlayerProfile.Instance.currentRegionIndex &&
+						  PlayerProfile.Instance.hasPendingStarAnimation;
+
 		string pendingLevelId = PlayerProfile.Instance.pendingStarLevelId;
 		int pendingOldStars = PlayerProfile.Instance.pendingStarOldValue;
 
 		for (int i = 0; i < currentVisualMap.levelStarsViews.Length; i++)
 		{
 			if (currentVisualMap.levelStarsViews[i] == null) continue;
+
+			if (!isUnlockedRegion)
+			{
+				currentVisualMap.levelStarsViews[i].SetStarsInstant(0);
+				continue;
+			}
 
 			if (i >= region.levels.Count || region.levels[i] == null)
 			{
@@ -179,7 +223,7 @@ public class MapController : MonoBehaviour
 		}
 	}
 
-	private void UpdateRegionProgress(int regionIndex, bool animate)
+	private void UpdateRegionProgress(int regionIndex, bool animate, bool isUnlockedRegion)
 	{
 		if (PlayerProfile.Instance == null) return;
 		if (regionIndex < 0 || regionIndex >= PlayerProfile.Instance.allRegions.Count) return;
@@ -187,7 +231,7 @@ public class MapController : MonoBehaviour
 		RegionConfig region = PlayerProfile.Instance.allRegions[regionIndex];
 		if (region == null) return;
 
-		float progress01 = PlayerProfile.Instance.GetRegionProgress01(regionIndex);
+		float progress01 = isUnlockedRegion ? PlayerProfile.Instance.GetRegionProgress01(regionIndex) : 0f;
 
 		if (regionProgressFill != null)
 		{
@@ -204,8 +248,8 @@ public class MapController : MonoBehaviour
 		{
 			for (int i = 0; i < region.trophyRoadRewards.Length; i++)
 			{
-				bool reached = progress01 >= region.trophyRoadRewards[i].progressThreshold;
-				bool claimed = PlayerProfile.Instance.IsRegionRewardClaimed(regionIndex, i);
+				bool reached = isUnlockedRegion && progress01 >= region.trophyRoadRewards[i].progressThreshold;
+				bool claimed = isUnlockedRegion && PlayerProfile.Instance.IsRegionRewardClaimed(regionIndex, i);
 
 				if (i < rewardClaimedMarks.Length && rewardClaimedMarks[i] != null)
 					rewardClaimedMarks[i].SetActive(claimed);
@@ -219,6 +263,13 @@ public class MapController : MonoBehaviour
 					if (btn != null)
 						btn.interactable = reached && !claimed;
 				}
+
+				CanvasGroup cg = rewardMilestones[i] != null ? rewardMilestones[i].GetComponent<CanvasGroup>() : null;
+				if (cg == null && rewardMilestones[i] != null)
+					cg = rewardMilestones[i].gameObject.AddComponent<CanvasGroup>();
+
+				if (cg != null)
+					cg.alpha = isUnlockedRegion ? 1f : 0.45f;
 			}
 		}
 	}
@@ -264,7 +315,10 @@ public class MapController : MonoBehaviour
 		yield return new WaitForSeconds(0.3f);
 
 		if (fromIndex < currentVisualMap.levelNodes.Length)
-			currentVisualMap.levelNodes[fromIndex].GetComponent<Image>().DOColor(completedColor, animDuration);
+		{
+			Image img = currentVisualMap.levelNodes[fromIndex].GetComponent<Image>();
+			if (img != null) img.DOColor(completedColor, animDuration);
+		}
 
 		if (fromIndex < currentVisualMap.sectors.Length)
 			currentVisualMap.sectors[fromIndex].DOColor(completedColor, animDuration);
@@ -279,10 +333,13 @@ public class MapController : MonoBehaviour
 
 		if (toIndex < currentVisualMap.levelNodes.Length)
 		{
-			playerToken.DOJump(currentVisualMap.levelNodes[toIndex].transform.position + tokenOffset, 70f, 1, 0.6f).SetEase(Ease.OutQuad);
+			if (playerToken != null)
+				playerToken.DOJump(currentVisualMap.levelNodes[toIndex].transform.position + tokenOffset, 70f, 1, 0.6f).SetEase(Ease.OutQuad);
+
 			yield return new WaitForSeconds(0.2f);
 
-			currentVisualMap.levelNodes[toIndex].GetComponent<Image>().DOColor(currentColor, animDuration);
+			Image img = currentVisualMap.levelNodes[toIndex].GetComponent<Image>();
+			if (img != null) img.DOColor(currentColor, animDuration);
 
 			if (toIndex < currentVisualMap.sectors.Length)
 			{
@@ -300,7 +357,7 @@ public class MapController : MonoBehaviour
 		if (PlayerProfile.Instance.hasPendingStarAnimation)
 			yield return StartCoroutine(PlayPendingStarAnimationOnly(regionIdx, true));
 		else
-			UpdateRegionProgress(regionIdx, true);
+			UpdateRegionProgress(regionIdx, true, true);
 
 		yield return new WaitForSeconds(0.35f);
 
@@ -339,7 +396,7 @@ public class MapController : MonoBehaviour
 
 		yield return seq.WaitForCompletion();
 
-		UpdateRegionProgress(regionIdx, true);
+		UpdateRegionProgress(regionIdx, true, true);
 
 		yield return new WaitForSeconds(0.2f);
 		PlayerProfile.Instance.ClearPendingStarAnimation();
@@ -354,6 +411,7 @@ public class MapController : MonoBehaviour
 		if (currentVisualMap != null)
 		{
 			if (confettiFX != null) confettiFX.Play();
+
 			foreach (var sector in currentVisualMap.sectors)
 			{
 				if (sector != null)
@@ -366,6 +424,8 @@ public class MapController : MonoBehaviour
 		if (confettiFX != null) confettiFX.Stop();
 		PlayerProfile.Instance.hasPendingRegionAnimation = false;
 		PlayerProfile.Instance.SaveProfile();
+
+		previewRegionIndex = PlayerProfile.Instance.currentRegionIndex;
 		RefreshMap();
 
 		MainMenuSwipeController.IsSwipeLocked = false;
@@ -375,6 +435,12 @@ public class MapController : MonoBehaviour
 	private void OnNodeClicked(int nodeIndex)
 	{
 		if (PlayerProfile.Instance == null) return;
+
+		int realRegionIndex = PlayerProfile.Instance.currentRegionIndex;
+		bool isUnlockedRegion = previewRegionIndex <= realRegionIndex;
+		if (!isUnlockedRegion) return;
+
+		if (previewRegionIndex != realRegionIndex) return;
 
 		if (nodeIndex > PlayerProfile.Instance.currentLevelIndex)
 		{
@@ -388,7 +454,7 @@ public class MapController : MonoBehaviour
 			return;
 		}
 
-		int regionIdx = PlayerProfile.Instance.currentRegionIndex;
+		int regionIdx = previewRegionIndex;
 		if (regionIdx < 0 || regionIdx >= PlayerProfile.Instance.allRegions.Count) return;
 
 		RegionConfig region = PlayerProfile.Instance.allRegions[regionIdx];
@@ -409,8 +475,9 @@ public class MapController : MonoBehaviour
 	public void TryClaimRegionReward(int rewardIndex)
 	{
 		if (PlayerProfile.Instance == null) return;
+		if (previewRegionIndex != PlayerProfile.Instance.currentRegionIndex) return;
 
-		int regionIdx = PlayerProfile.Instance.currentRegionIndex;
+		int regionIdx = previewRegionIndex;
 		if (regionIdx < 0 || regionIdx >= PlayerProfile.Instance.allRegions.Count) return;
 
 		RegionConfig region = PlayerProfile.Instance.allRegions[regionIdx];
@@ -458,12 +525,31 @@ public class MapController : MonoBehaviour
 
 		PlayerProfile.Instance.MarkRegionRewardClaimed(regionIdx, rewardIndex);
 		PlayerProfile.Instance.SaveProfile();
-		UpdateRegionProgress(regionIdx, false);
+		UpdateRegionProgress(regionIdx, false, true);
 
 		if (rewardIndex < rewardMilestones.Length && rewardMilestones[rewardIndex] != null)
-		{
 			rewardMilestones[rewardIndex].DOPunchScale(Vector3.one * 0.2f, 0.35f, 8, 1f);
-		}
+	}
+
+	public void TryPreviewNextRegion()
+	{
+		if (PlayerProfile.Instance == null) return;
+
+		int maxIndex = PlayerProfile.Instance.allRegions.Count - 1;
+		if (previewRegionIndex >= maxIndex) return;
+
+		previewRegionIndex++;
+		RefreshMap();
+	}
+
+	public void TryPreviewPreviousRegion()
+	{
+		if (PlayerProfile.Instance == null) return;
+
+		if (previewRegionIndex <= 0) return;
+
+		previewRegionIndex--;
+		RefreshMap();
 	}
 
 	private void OnDestroy() => transform.DOKill();
