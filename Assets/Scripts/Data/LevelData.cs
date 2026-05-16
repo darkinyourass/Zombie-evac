@@ -13,6 +13,13 @@ public class LevelData : ScriptableObject
 	public float initialSpawnDelay = 0.5f;
 	public float suddenDeathSpawnRate = 0.3f;
 
+	[Header("Спавн через layout-маркеры")]
+	[Tooltip("Если true, люди будут спавниться в точках HumanSpawn из levelPrefab")]
+	public bool useHumanSpawnMarkers = false;
+
+	[Tooltip("Если true, ученые будут спавниться в точках ScientistSpawn из levelPrefab")]
+	public bool useScientistSpawnMarkers = false;
+
 	[Header("Условия победы")]
 	[Tooltip("Минимальное количество спасённых людей для победы")]
 	public int requiredRescuedHumans = 10;
