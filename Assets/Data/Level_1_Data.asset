@@ -25,11 +25,11 @@ MonoBehaviour:
   missionTitleOverride: 
   missionIcon: {fileID: -7343220986905845580, guid: 215687feeab0b7445b4a1cd86c82c2e1, type: 3}
   missionDescription: 
-  cameraType: 0
+  cameraType: 1
   cameraPosition: {x: -2.86, y: 27.4, z: 4.8}
-  cameraRotation: {x: 90, y: 0, z: 0}
+  cameraRotation: {x: 60, y: 45, z: 0}
   cameraFieldOfView: 76
-  orthographicSize: 10
+  orthographicSize: 35
   currencyReward: 50
   levelRewardLootbox: {fileID: 11400000, guid: aedfda23cd5572c4dac0817ed913988e, type: 2}
   scientistCount: 10
