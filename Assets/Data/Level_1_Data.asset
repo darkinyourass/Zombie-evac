@@ -26,8 +26,8 @@ MonoBehaviour:
   missionIcon: {fileID: -7343220986905845580, guid: 215687feeab0b7445b4a1cd86c82c2e1, type: 3}
   missionDescription: 
   cameraType: 1
-  cameraPosition: {x: -2.86, y: 27.4, z: 4.8}
-  cameraRotation: {x: 60, y: 45, z: 0}
+  cameraPosition: {x: -3, y: 30, z: 0}
+  cameraRotation: {x: 90, y: 15, z: 0}
   cameraFieldOfView: 76
   orthographicSize: 35
   currencyReward: 50
