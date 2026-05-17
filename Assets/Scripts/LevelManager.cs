@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
-using UnityEngine.AI;
 using Unity.AI.Navigation;
+using UnityEngine.AI;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -8,17 +8,17 @@ public class LevelManager : MonoBehaviour
 {
 	public static LevelManager Instance;
 
-	[Header("References")]
+	[Header("Ссылки на мир")]
 	[SerializeField] private NavMeshSurface navSurface;
 	[SerializeField] private GameObject humanPrefab;
 	[SerializeField] private GameObject zombiePrefab;
 	[SerializeField] private GameObject defaultScientistPrefab;
 
-	[Header("Planning Indicators")]
+	[Header("Визуализация Планирования")]
 	[SerializeField] private GameObject indicatorPrefab;
 	[SerializeField] private float indicatorHeight = 1.5f;
 
-	[Header("Lighting")]
+	[Header("Освещение")]
 	public Light sunLight;
 	public Color nightColor = new Color(0.1f, 0.1f, 0.3f);
 	public float nightIntensity = 0.2f;
@@ -27,21 +27,14 @@ public class LevelManager : MonoBehaviour
 	private float dayIntensity;
 
 	private int currentLevelIndex = 0;
-
-	private readonly List<Transform> daySpawnPoints = new List<Transform>();
-	private readonly List<Transform> nightSpawnPoints = new List<Transform>();
-	private readonly List<Transform> humanSpawnPoints = new List<Transform>();
-	private readonly List<Transform> scientistSpawnPoints = new List<Transform>();
-
-	private readonly List<GameObject> activeIndicators = new List<GameObject>();
+	private List<Transform> daySpawnPoints = new List<Transform>();
+	private List<Transform> nightSpawnPoints = new List<Transform>();
+	private List<GameObject> activeIndicators = new List<GameObject>();
 
 	public LevelData currentData;
 	private GameObject currentLevelEnvironment;
 
-	private void Awake()
-	{
-		Instance = this;
-	}
+	private void Awake() => Instance = this;
 
 	private void Start()
 	{
@@ -55,8 +48,8 @@ public class LevelManager : MonoBehaviour
 		regionIdx = Mathf.Clamp(regionIdx, 0, PlayerProfile.Instance.allRegions.Count - 1);
 
 		RegionConfig currentRegion = PlayerProfile.Instance.allRegions[regionIdx];
-
 		currentLevelIndex = PlayerPrefs.GetInt("SelectedLevelToPlay", 0);
+
 		if (currentLevelIndex >= currentRegion.levels.Count)
 			currentLevelIndex = 0;
 
@@ -67,7 +60,6 @@ public class LevelManager : MonoBehaviour
 	public void LoadLevel(LevelData data)
 	{
 		ClearIndicators();
-
 		currentData = data;
 
 		if (currentLevelEnvironment != null)
@@ -81,59 +73,23 @@ public class LevelManager : MonoBehaviour
 		if (navSurface != null)
 			navSurface.BuildNavMesh();
 
-		CollectSpawnPoints();
+		daySpawnPoints.Clear();
+		foreach (GameObject sp in GameObject.FindGameObjectsWithTag("SpawnPoint"))
+			daySpawnPoints.Add(sp.transform);
+
+		nightSpawnPoints.Clear();
+		foreach (GameObject sp in GameObject.FindGameObjectsWithTag("NightSpawn"))
+			nightSpawnPoints.Add(sp.transform);
+
+		if (nightSpawnPoints.Count == 0)
+			nightSpawnPoints.AddRange(daySpawnPoints);
 
 		SpawnPlanningIndicators();
 		SpawnHumans(data.humanCount);
 		SpawnScientists(data.scientistCount);
 
-		GameManager.Instance.SetTotalHumans(Human.AllHumans.Count);
+		GameManager.Instance.SetTotalHumans(GameObject.FindGameObjectsWithTag("Human").Length);
 		GameManager.Instance.SetupTimer(data.levelTimer);
-	}
-
-	private void CollectSpawnPoints()
-	{
-		daySpawnPoints.Clear();
-		nightSpawnPoints.Clear();
-		humanSpawnPoints.Clear();
-		scientistSpawnPoints.Clear();
-
-		if (currentLevelEnvironment == null)
-		{
-			Debug.LogWarning("[LevelManager] currentLevelEnvironment is null.");
-			return;
-		}
-
-		LevelCell[] cells = currentLevelEnvironment.GetComponentsInChildren<LevelCell>(true);
-
-		foreach (LevelCell cell in cells)
-		{
-			if (cell == null) continue;
-
-			switch (cell.cellType)
-			{
-				case LevelCell.CellType.SpawnDay:
-					daySpawnPoints.Add(cell.transform);
-					break;
-
-				case LevelCell.CellType.SpawnNight:
-					nightSpawnPoints.Add(cell.transform);
-					break;
-
-				case LevelCell.CellType.HumanSpawn:
-					humanSpawnPoints.Add(cell.transform);
-					break;
-
-				case LevelCell.CellType.ScientistSpawn:
-					scientistSpawnPoints.Add(cell.transform);
-					break;
-			}
-		}
-
-		if (nightSpawnPoints.Count == 0)
-			nightSpawnPoints.AddRange(daySpawnPoints);
-
-		Debug.Log($"[LevelManager] Spawn points collected | Day: {daySpawnPoints.Count}, Night: {nightSpawnPoints.Count}, Human: {humanSpawnPoints.Count}, Scientist: {scientistSpawnPoints.Count}");
 	}
 
 	private void SpawnPlanningIndicators()
@@ -142,8 +98,6 @@ public class LevelManager : MonoBehaviour
 
 		foreach (Transform sp in daySpawnPoints)
 		{
-			if (sp == null) continue;
-
 			Vector3 pos = sp.position + Vector3.up * indicatorHeight;
 			GameObject indicator = Instantiate(indicatorPrefab, pos, indicatorPrefab.transform.rotation);
 			activeIndicators.Add(indicator);
@@ -153,150 +107,47 @@ public class LevelManager : MonoBehaviour
 	private void ClearIndicators()
 	{
 		foreach (GameObject ind in activeIndicators)
-		{
-			if (ind != null)
-				Destroy(ind);
-		}
+			if (ind != null) Destroy(ind);
 
 		activeIndicators.Clear();
 	}
 
 	private void SpawnHumans(int count)
 	{
-		if (humanPrefab == null)
-		{
-			Debug.LogWarning("[LevelManager] Human prefab is missing.");
-			return;
-		}
-
-		if (count <= 0)
-			return;
-
-		if (currentData.useHumanSpawnMarkers && humanSpawnPoints.Count > 0)
-		{
-			float spawnRadius = 2.5f;
-			int attemptsPerHuman = 8;
-
-			for (int i = 0; i < count; i++)
-			{
-				Transform anchor = humanSpawnPoints[Random.Range(0, humanSpawnPoints.Count)];
-				if (anchor == null) continue;
-
-				bool spawned = false;
-
-				for (int attempt = 0; attempt < attemptsPerHuman; attempt++)
-				{
-					Vector2 offset2D = Random.insideUnitCircle * spawnRadius;
-					Vector3 candidate = anchor.position + new Vector3(offset2D.x, 0f, offset2D.y);
-
-					if (NavMesh.SamplePosition(candidate, out NavMeshHit hit, 2f, NavMesh.AllAreas))
-					{
-						Instantiate(humanPrefab, hit.position, Quaternion.identity);
-						spawned = true;
-						break;
-					}
-				}
-
-				if (!spawned)
-				{
-					if (NavMesh.SamplePosition(anchor.position, out NavMeshHit fallbackHit, 2f, NavMesh.AllAreas))
-					{
-						Instantiate(humanPrefab, fallbackHit.position, Quaternion.identity);
-					}
-					else
-					{
-						Debug.LogWarning("[LevelManager] Failed to spawn human near anchor: " + anchor.name);
-					}
-				}
-			}
-
-			return;
-		}
-
 		for (int i = 0; i < count; i++)
 		{
 			Vector3 randomPos = Random.insideUnitSphere * 20f;
-			randomPos.y = 0f;
+			randomPos.y = 0;
 
 			if (NavMesh.SamplePosition(randomPos, out NavMeshHit hit, 20f, NavMesh.AllAreas))
-			{
 				Instantiate(humanPrefab, hit.position, Quaternion.identity);
-			}
 		}
 	}
 
 	private void SpawnScientists(int count)
 	{
-		if (count <= 0)
-			return;
+		if (count <= 0) return;
 
-		GameObject prefabToUse = currentData.scientistPrefab != null
-			? currentData.scientistPrefab
-			: defaultScientistPrefab;
-
+		GameObject prefabToUse = currentData.scientistPrefab != null ? currentData.scientistPrefab : defaultScientistPrefab;
 		if (prefabToUse == null)
 		{
-			Debug.LogWarning("[LevelManager] Scientist prefab is missing.");
-			return;
-		}
-
-		if (currentData.useScientistSpawnMarkers && scientistSpawnPoints.Count > 0)
-		{
-			float spawnRadius = 2.5f;
-			int attemptsPerScientist = 8;
-
-			for (int i = 0; i < count; i++)
-			{
-				Transform anchor = scientistSpawnPoints[Random.Range(0, scientistSpawnPoints.Count)];
-				if (anchor == null) continue;
-
-				bool spawned = false;
-
-				for (int attempt = 0; attempt < attemptsPerScientist; attempt++)
-				{
-					Vector2 offset2D = Random.insideUnitCircle * spawnRadius;
-					Vector3 candidate = anchor.position + new Vector3(offset2D.x, 0f, offset2D.y);
-
-					if (NavMesh.SamplePosition(candidate, out NavMeshHit hit, 2f, NavMesh.AllAreas))
-					{
-						Instantiate(prefabToUse, hit.position, Quaternion.identity);
-						spawned = true;
-						break;
-					}
-				}
-
-				if (!spawned)
-				{
-					if (NavMesh.SamplePosition(anchor.position, out NavMeshHit fallbackHit, 2f, NavMesh.AllAreas))
-					{
-						Instantiate(prefabToUse, fallbackHit.position, Quaternion.identity);
-					}
-					else
-					{
-						Debug.LogWarning("[LevelManager] Failed to spawn scientist near anchor: " + anchor.name);
-					}
-				}
-			}
-
+			Debug.LogWarning("[LevelManager] Scientist prefab is not assigned.");
 			return;
 		}
 
 		for (int i = 0; i < count; i++)
 		{
 			Vector3 randomPos = Random.insideUnitSphere * 20f;
-			randomPos.y = 0f;
+			randomPos.y = 0;
 
 			if (NavMesh.SamplePosition(randomPos, out NavMeshHit hit, 20f, NavMesh.AllAreas))
-			{
 				Instantiate(prefabToUse, hit.position, Quaternion.identity);
-			}
 		}
 	}
 
 	public void StartInitialSpawns()
 	{
 		ClearIndicators();
-
 		StartCoroutine(InitialSpawnRoutine());
 
 		if (currentData.spawnBoss && currentData.bossPrefab != null && currentData.bossCount > 0)
@@ -309,24 +160,17 @@ public class LevelManager : MonoBehaviour
 		{
 			yield return new WaitForSeconds(currentData.initialSpawnDelay);
 
-			if (daySpawnPoints.Count == 0)
-			{
-				Debug.LogWarning("[LevelManager] No day spawn points found.");
-				continue;
-			}
+			if (daySpawnPoints.Count <= 0) continue;
 
 			Transform spawnPoint = daySpawnPoints[Random.Range(0, daySpawnPoints.Count)];
 
-			if (spawnPoint == null)
-				continue;
-
-			if (NavMesh.SamplePosition(spawnPoint.position, out NavMeshHit hit, 2f, NavMesh.AllAreas))
+			if (ZombiePool.Instance != null)
 			{
-				Instantiate(zombiePrefab, hit.position, Quaternion.identity);
+				ZombiePool.Instance.Get(spawnPoint.position, Quaternion.identity);
 			}
 			else
 			{
-				Debug.LogWarning("[LevelManager] Day spawn point is not on NavMesh: " + spawnPoint.name);
+				Instantiate(zombiePrefab, spawnPoint.position, Quaternion.identity);
 			}
 		}
 	}
@@ -336,7 +180,6 @@ public class LevelManager : MonoBehaviour
 		yield return new WaitForSeconds(currentData.bossSpawnDelay);
 
 		int bossesToSpawn = Mathf.Max(0, currentData.bossCount);
-
 		for (int i = 0; i < bossesToSpawn; i++)
 		{
 			SpawnOneBoss(i + 1);
@@ -348,18 +191,11 @@ public class LevelManager : MonoBehaviour
 
 	private void SpawnOneBoss(int bossNumber)
 	{
-		if (daySpawnPoints.Count == 0) return;
+		if (daySpawnPoints.Count <= 0) return;
 		if (currentData.bossPrefab == null) return;
 
 		Transform spawnPoint = daySpawnPoints[Random.Range(0, daySpawnPoints.Count)];
-		if (spawnPoint == null) return;
-
-		Vector3 spawnPos = spawnPoint.position;
-
-		if (NavMesh.SamplePosition(spawnPos, out NavMeshHit hit, 2f, NavMesh.AllAreas))
-			spawnPos = hit.position;
-
-		GameObject bossObj = Instantiate(currentData.bossPrefab, spawnPos, Quaternion.identity);
+		GameObject bossObj = Instantiate(currentData.bossPrefab, spawnPoint.position, Quaternion.identity);
 		bossObj.name = currentData.bossPrefab.name + "_" + bossNumber;
 
 		ZombieBoss boss = bossObj.GetComponent<ZombieBoss>();
@@ -371,7 +207,7 @@ public class LevelManager : MonoBehaviour
 			boss.maxBuildingsPerRage = currentData.bossMaxBuildingsPerRage;
 		}
 
-		Debug.Log("[LevelManager] Boss spawned: " + bossObj.name);
+		Debug.Log("[LevelManager] Spawned boss: " + bossObj.name);
 	}
 
 	public void StartSuddenDeath()
@@ -385,10 +221,10 @@ public class LevelManager : MonoBehaviour
 		if (sunLight == null) yield break;
 
 		float transitionTime = 2f;
-		float t = 0f;
+		float t = 0;
 		float startAmbient = RenderSettings.ambientIntensity;
 
-		while (t < 1f)
+		while (t < 1)
 		{
 			t += Time.deltaTime / transitionTime;
 			sunLight.color = Color.Lerp(dayColor, nightColor, t);
@@ -404,22 +240,17 @@ public class LevelManager : MonoBehaviour
 		{
 			yield return new WaitForSeconds(currentData.suddenDeathSpawnRate);
 
-			if (nightSpawnPoints.Count == 0)
-			{
-				Debug.LogWarning("[LevelManager] No night spawn points found.");
-				continue;
-			}
+			if (nightSpawnPoints.Count <= 0) continue;
 
 			Transform spawnPoint = nightSpawnPoints[Random.Range(0, nightSpawnPoints.Count)];
-			if (spawnPoint == null) continue;
 
-			if (NavMesh.SamplePosition(spawnPoint.position, out NavMeshHit hit, 2f, NavMesh.AllAreas))
+			if (ZombiePool.Instance != null)
 			{
-				Instantiate(zombiePrefab, hit.position, Quaternion.identity);
+				ZombiePool.Instance.Get(spawnPoint.position, Quaternion.identity);
 			}
 			else
 			{
-				Debug.LogWarning("[LevelManager] Night spawn point is not on NavMesh: " + spawnPoint.name);
+				Instantiate(zombiePrefab, spawnPoint.position, Quaternion.identity);
 			}
 		}
 	}
