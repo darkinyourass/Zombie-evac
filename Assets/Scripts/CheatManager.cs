@@ -111,7 +111,7 @@ public class CheatManager : MonoBehaviour
 			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "Unlock All (F1)")) GiveMaxResources();
 			yPos += btnH + padding;
 
-			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "+100 Shards + Cash (F8)")) GiveCardsCheat();
+			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "+100 Shards + Cash + Energy (F8)")) GiveCardsCheat();
 			yPos += btnH + padding;
 
 			if (GUI.Button(new Rect(padding, yPos, btnW, btnH), "RESET ALL (F7)")) ResetSaves();
@@ -140,8 +140,7 @@ public class CheatManager : MonoBehaviour
 
 	private void ResetSaves()
 	{
-		PlayerPrefs.DeleteAll();
-		PlayerPrefs.Save();
+		if (PlayerProfile.Instance != null) PlayerProfile.Instance.ResetProfile();
 		Debug.Log("<color=red>СБРОС: Все данные стерты. Перезапуск...</color>");
 		SceneManager.LoadScene(0);
 	}
@@ -150,9 +149,11 @@ public class CheatManager : MonoBehaviour
 	{
 		if (PlayerProfile.Instance == null) return;
 
-		// Даем обе валюты
 		PlayerProfile.Instance.totalCurrency += 10000;
 		PlayerProfile.Instance.totalScientistsCurrency += 1000;
+
+		// --- НОВОЕ: Чит на энергию ---
+		PlayerProfile.Instance.currentEnergy = PlayerProfile.Instance.maxEnergy;
 
 		foreach (CardData card in PlayerProfile.Instance.allAvailableCards)
 		{
@@ -160,7 +161,7 @@ public class CheatManager : MonoBehaviour
 				PlayerProfile.Instance.ownedCardsProgress.Add(new CardProgress(card.name));
 		}
 
-		PlayerProfile.Instance.SaveProfile(); // Это обновит UI счетчиков
+		PlayerProfile.Instance.SaveProfile();
 		RefreshDeckMenu();
 	}
 
@@ -168,8 +169,10 @@ public class CheatManager : MonoBehaviour
 	{
 		if (PlayerProfile.Instance == null) return;
 
-		// Даем людей (Софт) для прокачки
 		PlayerProfile.Instance.totalCurrency += 5000;
+
+		// --- НОВОЕ: Чит на энергию ---
+		PlayerProfile.Instance.currentEnergy = PlayerProfile.Instance.maxEnergy;
 
 		foreach (CardData card in PlayerProfile.Instance.allAvailableCards)
 		{
@@ -184,9 +187,9 @@ public class CheatManager : MonoBehaviour
 			progress.collectedShards += 100;
 		}
 
-		PlayerProfile.Instance.SaveProfile(); // Это обновит UI счетчиков
+		PlayerProfile.Instance.SaveProfile();
 		RefreshDeckMenu();
-		Debug.Log("<color=green>ЧИТ: Добавлено +100 дубликатов каждой карты и 5000 людей!</color>");
+		Debug.Log("<color=green>ЧИТ: Добавлено +100 дубликатов карт, 5000 людей и фулл энергия!</color>");
 	}
 
 	private void RefreshDeckMenu()
@@ -196,10 +199,8 @@ public class CheatManager : MonoBehaviour
 	}
 
 	private void CheatWin() => GameManager.Instance?.EndLevel();
-
 	private void FillMana() => EnergyManager.Instance?.CheatFillEnergy();
 
-	// Чит на Людей (Софт валюта)
 	private void AddCurrency()
 	{
 		if (GameManager.Instance != null) GameManager.Instance.AddRescuedHumans(10, Vector3.zero);
@@ -210,7 +211,6 @@ public class CheatManager : MonoBehaviour
 		}
 	}
 
-	// Чит на Ученых (Хард валюта)
 	private void AddHardCurrency()
 	{
 		if (PlayerProfile.Instance != null)

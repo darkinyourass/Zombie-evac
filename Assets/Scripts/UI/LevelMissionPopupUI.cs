@@ -39,6 +39,14 @@ public class LevelMissionPopupUI : MonoBehaviour
 	[SerializeField] private Button startButton;
 	[SerializeField] private Button closeButton;
 
+	[Header("Энергия")]
+	[SerializeField] private int levelEnergyCost = 5;
+	[SerializeField] private Image startButtonImage;
+	[SerializeField] private TextMeshProUGUI energyCostText; // НОВОЕ: Сюда закинь текст на кнопке "Play" (например "5 ⚡")
+	[SerializeField] private Color enoughEnergyColor = Color.green;
+	[SerializeField] private Color notEnoughEnergyColor = Color.gray;
+	[SerializeField] private EnergyStorePopupUI energyStorePopup;
+
 	private int selectedRegionIndex;
 	private int selectedLevelIndex;
 	private LevelData selectedLevelData;
@@ -60,8 +68,7 @@ public class LevelMissionPopupUI : MonoBehaviour
 
 	private void Start()
 	{
-		if (root == null)
-			root = gameObject;
+		if (root == null) root = gameObject;
 	}
 
 	public void Show(int regionIndex, int levelIndex, LevelData levelData)
@@ -75,11 +82,17 @@ public class LevelMissionPopupUI : MonoBehaviour
 		GameObject targetRoot = root != null ? root : gameObject;
 		targetRoot.SetActive(true);
 
-		if (titleText != null)
-			titleText.text = selectedLevelData.GetMissionTitle(regionIndex, levelIndex);
+		// Визуал кнопки и цены энергии
+		bool hasEnoughEnergy = PlayerProfile.Instance.currentEnergy >= levelEnergyCost;
+		if (startButtonImage != null)
+			startButtonImage.color = hasEnoughEnergy ? enoughEnergyColor : notEnoughEnergyColor;
 
-		if (descriptionText != null)
-			descriptionText.text = selectedLevelData.missionDescription;
+		if (energyCostText != null)
+			energyCostText.text = $"-{levelEnergyCost}"; // Покажет "-5"
+
+		// Оригинальный код заполнения UI
+		if (titleText != null) titleText.text = selectedLevelData.GetMissionTitle(regionIndex, levelIndex);
+		if (descriptionText != null) descriptionText.text = selectedLevelData.missionDescription;
 
 		if (missionIcon != null)
 		{
@@ -88,24 +101,15 @@ public class LevelMissionPopupUI : MonoBehaviour
 				missionIcon.sprite = selectedLevelData.missionIcon;
 				missionIcon.gameObject.SetActive(true);
 			}
-			else
-			{
-				missionIcon.gameObject.SetActive(false);
-			}
+			else missionIcon.gameObject.SetActive(false);
 		}
 
 		int savedStars = 0;
-		if (PlayerProfile.Instance != null)
-			savedStars = PlayerProfile.Instance.GetSavedStarsForLevel(selectedLevelData);
+		if (PlayerProfile.Instance != null) savedStars = PlayerProfile.Instance.GetSavedStarsForLevel(selectedLevelData);
 
-		if (star1Text != null)
-			star1Text.text = $"Спасти {selectedLevelData.GetStar1Target()} людей";
-
-		if (star2Text != null)
-			star2Text.text = $"Спасти {selectedLevelData.GetStar2Target()} людей";
-
-		if (star3Text != null)
-			star3Text.text = selectedLevelData.star3Description;
+		if (star1Text != null) star1Text.text = $"Спасти {selectedLevelData.GetStar1Target()} людей";
+		if (star2Text != null) star2Text.text = $"Спасти {selectedLevelData.GetStar2Target()} людей";
+		if (star3Text != null) star3Text.text = selectedLevelData.star3Description;
 
 		ApplyStarState(star1Icon, savedStars >= 1);
 		ApplyStarState(star2Icon, savedStars >= 2);
@@ -114,14 +118,9 @@ public class LevelMissionPopupUI : MonoBehaviour
 		string firstPassKey = "LevelPassed_" + selectedLevelData.name;
 		bool passedBefore = PlayerPrefs.GetInt(firstPassKey, 0) == 1;
 
-		if (rewardsRoot != null)
-			rewardsRoot.SetActive(!passedBefore);
-
-		if (softRewardText != null)
-			softRewardText.text = selectedLevelData.currencyReward.ToString();
-
-		if (lootboxBlock != null)
-			lootboxBlock.SetActive(selectedLevelData.levelRewardLootbox != null && !passedBefore);
+		if (rewardsRoot != null) rewardsRoot.SetActive(!passedBefore);
+		if (softRewardText != null) softRewardText.text = selectedLevelData.currencyReward.ToString();
+		if (lootboxBlock != null) lootboxBlock.SetActive(selectedLevelData.levelRewardLootbox != null && !passedBefore);
 
 		if (lootboxIcon != null && selectedLevelData.levelRewardLootbox != null && selectedLevelData.levelRewardLootbox.boxIcon != null)
 			lootboxIcon.sprite = selectedLevelData.levelRewardLootbox.boxIcon;
@@ -130,17 +129,22 @@ public class LevelMissionPopupUI : MonoBehaviour
 	private void ApplyStarState(Image starIcon, bool isFilled)
 	{
 		if (starIcon == null) return;
-
-		if (isFilled && filledStarSprite != null)
-			starIcon.sprite = filledStarSprite;
-		else if (!isFilled && emptyStarSprite != null)
-			starIcon.sprite = emptyStarSprite;
+		if (isFilled && filledStarSprite != null) starIcon.sprite = filledStarSprite;
+		else if (!isFilled && emptyStarSprite != null) starIcon.sprite = emptyStarSprite;
 	}
 
 	private void OnStartPressed()
 	{
-		PlayerPrefs.SetInt("SelectedLevelToPlay", selectedLevelIndex);
-		SceneManager.LoadScene("Gameplay");
+		if (PlayerProfile.Instance.TryConsumeEnergy(levelEnergyCost))
+		{
+			PlayerPrefs.SetInt("SelectedLevelToPlay", selectedLevelIndex);
+			SceneManager.LoadScene("Gameplay");
+		}
+		else
+		{
+			if (energyStorePopup != null)
+				energyStorePopup.Show();
+		}
 	}
 
 	public void Hide()

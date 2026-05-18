@@ -8,10 +8,17 @@ public class PlayerProfile : MonoBehaviour
 	public static PlayerProfile Instance;
 
 	public Action OnProfileUpdated;
+	public Action OnEnergyUpdated; // Ивент для UI энергии
 
 	[Header("Данные игрока")]
 	public int totalCurrency = 0;
 	public int totalScientistsCurrency = 0;
+
+	[Header("Энергия (Новое)")]
+	public int currentEnergy = 20;
+	public int maxEnergy = 20;
+	public int secondsToRegenOneEnergy = 300; // 5 минут на 1 единицу
+	private DateTime lastEnergyUpdateTime;
 
 	[Header("Прогресс карты (Saga)")]
 	public int currentRegionIndex = 0;
@@ -51,10 +58,34 @@ public class PlayerProfile : MonoBehaviour
 		else Destroy(gameObject);
 	}
 
+	private void Update()
+	{
+		// Оффлайн/онлайн реген энергии
+		if (currentEnergy < maxEnergy)
+		{
+			TimeSpan timePassed = DateTime.UtcNow - lastEnergyUpdateTime;
+			if (timePassed.TotalSeconds >= secondsToRegenOneEnergy)
+			{
+				int energyToAdd = (int)(timePassed.TotalSeconds / secondsToRegenOneEnergy);
+				currentEnergy = Mathf.Min(currentEnergy + energyToAdd, maxEnergy);
+				lastEnergyUpdateTime = lastEnergyUpdateTime.AddSeconds(energyToAdd * secondsToRegenOneEnergy);
+
+				SaveProfile();
+				OnEnergyUpdated?.Invoke();
+			}
+		}
+	}
+
 	public void LoadProfile()
 	{
 		totalCurrency = PlayerPrefs.GetInt("TotalCurrency", 0);
 		totalScientistsCurrency = PlayerPrefs.GetInt("TotalScientistsCurrency", 0);
+
+		// Загрузка энергии
+		currentEnergy = PlayerPrefs.GetInt("CurrentEnergy", maxEnergy);
+		long tempTime = Convert.ToInt64(PlayerPrefs.GetString("LastEnergyTime", DateTime.UtcNow.ToBinary().ToString()));
+		lastEnergyUpdateTime = DateTime.FromBinary(tempTime);
+		RecalculateOfflineEnergy();
 
 		currentRegionIndex = PlayerPrefs.GetInt("CurrentRegion", 0);
 		currentLevelIndex = PlayerPrefs.GetInt("CurrentLevel", 0);
@@ -106,6 +137,10 @@ public class PlayerProfile : MonoBehaviour
 		PlayerPrefs.SetInt("TotalCurrency", totalCurrency);
 		PlayerPrefs.SetInt("TotalScientistsCurrency", totalScientistsCurrency);
 
+		// Сохранение энергии
+		PlayerPrefs.SetInt("CurrentEnergy", currentEnergy);
+		PlayerPrefs.SetString("LastEnergyTime", lastEnergyUpdateTime.ToBinary().ToString());
+
 		PlayerPrefs.SetInt("CurrentRegion", currentRegionIndex);
 		PlayerPrefs.SetInt("CurrentLevel", currentLevelIndex);
 		PlayerPrefs.SetInt("PendingMapAnim", hasPendingMapAnimation ? 1 : 0);
@@ -135,6 +170,52 @@ public class PlayerProfile : MonoBehaviour
 		OnProfileUpdated?.Invoke();
 	}
 
+	// --- МЕТОДЫ ДЛЯ ЭНЕРГИИ ---
+	private void RecalculateOfflineEnergy()
+	{
+		if (currentEnergy >= maxEnergy) return;
+
+		TimeSpan timePassed = DateTime.UtcNow - lastEnergyUpdateTime;
+		int energyToAdd = (int)(timePassed.TotalSeconds / secondsToRegenOneEnergy);
+
+		if (energyToAdd > 0)
+		{
+			currentEnergy = Mathf.Min(currentEnergy + energyToAdd, maxEnergy);
+			lastEnergyUpdateTime = lastEnergyUpdateTime.AddSeconds(energyToAdd * secondsToRegenOneEnergy);
+			SaveProfile();
+		}
+	}
+
+	public bool TryConsumeEnergy(int amount)
+	{
+		if (currentEnergy >= amount)
+		{
+			if (currentEnergy == maxEnergy)
+				lastEnergyUpdateTime = DateTime.UtcNow;
+
+			currentEnergy -= amount;
+			SaveProfile();
+			OnEnergyUpdated?.Invoke();
+			return true;
+		}
+		return false;
+	}
+
+	public void AddEnergy(int amount)
+	{
+		currentEnergy = Mathf.Min(currentEnergy + amount, maxEnergy);
+		SaveProfile();
+		OnEnergyUpdated?.Invoke();
+	}
+
+	public float GetSecondsToNextEnergy()
+	{
+		if (currentEnergy >= maxEnergy) return 0;
+		TimeSpan timePassed = DateTime.UtcNow - lastEnergyUpdateTime;
+		return Mathf.Max(0, secondsToRegenOneEnergy - (float)timePassed.TotalSeconds);
+	}
+
+	// --- ОРИГИНАЛЬНАЯ ЛОГИКА ИГРЫ (ВОССТАНОВЛЕНО) ---
 	public void CompleteCurrentLevel()
 	{
 		if (currentRegionIndex >= allRegions.Count) return;
@@ -332,6 +413,8 @@ public class PlayerProfile : MonoBehaviour
 
 		totalCurrency = 0;
 		totalScientistsCurrency = 0;
+		currentEnergy = maxEnergy; // Сброс энергии
+
 		currentRegionIndex = 0;
 		currentLevelIndex = 0;
 		hasPendingMapAnimation = false;
@@ -344,6 +427,7 @@ public class PlayerProfile : MonoBehaviour
 	}
 }
 
+// Классы сериализации из оригинального файла
 [System.Serializable]
 public class SerializationWrapper<T>
 {
