@@ -31,7 +31,7 @@ MonoBehaviour:
   cameraFieldOfView: 80
   orthographicSize: 10
   currencyReward: 50
-  levelRewardLootbox: {fileID: 0}
+  levelRewardLootbox: {fileID: 11400000, guid: cf9c080cc60fd834782fe96eb286a38d, type: 2}
   scientistCount: 0
   scientistPrefab: {fileID: 4991825780762222915, guid: f3998a4653bed4146998b1e0a79d50c9, type: 3}
   spawnBoss: 1

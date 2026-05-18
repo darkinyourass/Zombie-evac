@@ -365,8 +365,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   myCardData: {fileID: 11400000, guid: 0a72315cfb99069488aed8c73ee79c63, type: 2}
-  cost: 6
-  cooldownTime: 15
+  cost: 5
+  cooldownTime: 5
   cardImage: {fileID: 2721755133437528500}
   cooldownFill: {fileID: 8030634945766310723}
   timerText: {fileID: 4402822537461244178}
