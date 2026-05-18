@@ -2,16 +2,13 @@ using UnityEngine;
 
 public class SpawnIndicator : MonoBehaviour
 {
-	private void Start()
-	{
-		// —разу подписываемс€ на событие старта игры
-		// ≈сли у нас в GameManager нет событи€, будем провер€ть в Update
-	}
+	[Tooltip("≈сли true, индикатор исчезнет сам, когда начнетс€ игра (дл€ фазы планировани€). ≈сли false, его удалит LevelManager (дл€ волн).")]
+	public bool isPlanningIndicator = true;
 
 	private void Update()
 	{
-		// ≈сли игра началась Ч удал€ем индикатор
-		if (GameManager.Instance.State != GameManager.GameState.Planning)
+		// ”дал€ем себ€ только если мы принадлежим фазе планировани€, а игра уже началась
+		if (isPlanningIndicator && GameManager.Instance.State != GameManager.GameState.Planning)
 		{
 			Destroy(gameObject);
 		}

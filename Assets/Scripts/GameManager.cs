@@ -153,14 +153,14 @@ public class GameManager : MonoBehaviour
 	{
 		if (perfectClearStarted) return;
 
-		float spawnTime = LevelManager.Instance.currentData.initialZombies * LevelManager.Instance.currentData.initialSpawnDelay + 1f;
-		if (startTimerAmount - currentTimer > spawnTime)
+		// Сначала убеждаемся, что таймлайн волн полностью отработал и больше спавнов не будет
+		if (LevelManager.Instance == null || !LevelManager.Instance.IsTimelineSpawningFinished) return;
+
+		// Если волны закончились и игрок добил последнего зомби — Идеальное прохождение
+		if (Zombie.AllZombies.Count == 0 && GetAliveResidentsCount() > 0)
 		{
-			if (Zombie.AllZombies.Count == 0 && GetAliveResidentsCount() > 0)
-			{
-				perfectClearStarted = true;
-				StartCoroutine(PerfectClearRoutine());
-			}
+			perfectClearStarted = true;
+			StartCoroutine(PerfectClearRoutine());
 		}
 	}
 

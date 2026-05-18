@@ -3,6 +3,7 @@ using Unity.AI.Navigation;
 using UnityEngine.AI;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 public class LevelManager : MonoBehaviour
 {
@@ -11,10 +12,10 @@ public class LevelManager : MonoBehaviour
 	[Header("Ссылки на мир")]
 	[SerializeField] private NavMeshSurface navSurface;
 	[SerializeField] private GameObject humanPrefab;
-	[SerializeField] private GameObject zombiePrefab;
+	[SerializeField] private GameObject zombiePrefab; // Дефолтный зомби
 	[SerializeField] private GameObject defaultScientistPrefab;
 
-	[Header("Визуализация Планирования")]
+	[Header("Визуализация Планирования / Предупреждения")]
 	[SerializeField] private GameObject indicatorPrefab;
 	[SerializeField] private float indicatorHeight = 1.5f;
 
@@ -27,12 +28,23 @@ public class LevelManager : MonoBehaviour
 	private float dayIntensity;
 
 	private int currentLevelIndex = 0;
-	private List<Transform> daySpawnPoints = new List<Transform>();
-	private List<Transform> nightSpawnPoints = new List<Transform>();
+
+	// Система хранения точек спавна
+	private List<SpawnPointMarker> allSpawnPoints = new List<SpawnPointMarker>();
+	private List<SpawnPointMarker> nightSpawnPoints = new List<SpawnPointMarker>();
 	private List<GameObject> activeIndicators = new List<GameObject>();
 
 	public LevelData currentData;
 	private GameObject currentLevelEnvironment;
+
+	// Таймлайн и статусы волн
+	private float timeElapsed = 0f;
+	private bool isTimelineRunning = false;
+	private Coroutine timelineCoroutine;
+
+	public bool IsTimelineSpawningFinished { get; private set; }
+	private int activeSpawnCoroutines = 0;
+	private bool allWavesTriggered = false;
 
 	private void Awake() => Instance = this;
 
@@ -73,18 +85,20 @@ public class LevelManager : MonoBehaviour
 		if (navSurface != null)
 			navSurface.BuildNavMesh();
 
-		daySpawnPoints.Clear();
-		foreach (GameObject sp in GameObject.FindGameObjectsWithTag("SpawnPoint"))
-			daySpawnPoints.Add(sp.transform);
-
+		allSpawnPoints.Clear();
 		nightSpawnPoints.Clear();
-		foreach (GameObject sp in GameObject.FindGameObjectsWithTag("NightSpawn"))
-			nightSpawnPoints.Add(sp.transform);
 
-		if (nightSpawnPoints.Count == 0)
-			nightSpawnPoints.AddRange(daySpawnPoints);
+		allSpawnPoints.AddRange(FindObjectsOfType<SpawnPointMarker>());
+		foreach (var sp in allSpawnPoints)
+		{
+			if (sp.isNightSpawn)
+			{
+				nightSpawnPoints.Add(sp);
+			}
+		}
 
-		SpawnPlanningIndicators();
+		SpawnInitialPlanningIndicators();
+
 		SpawnHumans(data.humanCount);
 		SpawnScientists(data.scientistCount);
 
@@ -92,15 +106,21 @@ public class LevelManager : MonoBehaviour
 		GameManager.Instance.SetupTimer(data.levelTimer);
 	}
 
-	private void SpawnPlanningIndicators()
+	private void SpawnInitialPlanningIndicators()
 	{
 		if (indicatorPrefab == null) return;
 
-		foreach (Transform sp in daySpawnPoints)
+		foreach (var sp in allSpawnPoints)
 		{
-			Vector3 pos = sp.position + Vector3.up * indicatorHeight;
-			GameObject indicator = Instantiate(indicatorPrefab, pos, indicatorPrefab.transform.rotation);
-			activeIndicators.Add(indicator);
+			if (!sp.isNightSpawn)
+			{
+				Vector3 pos = sp.transform.position + Vector3.up * indicatorHeight;
+				GameObject indicator = Instantiate(indicatorPrefab, pos, indicatorPrefab.transform.rotation);
+				activeIndicators.Add(indicator);
+
+				SpawnIndicator logic = indicator.GetComponent<SpawnIndicator>();
+				if (logic != null) logic.isPlanningIndicator = true;
+			}
 		}
 	}
 
@@ -148,70 +168,194 @@ public class LevelManager : MonoBehaviour
 	public void StartInitialSpawns()
 	{
 		ClearIndicators();
-		StartCoroutine(InitialSpawnRoutine());
 
-		if (currentData.spawnBoss && currentData.bossPrefab != null && currentData.bossCount > 0)
-			StartCoroutine(SpawnBossesRoutine());
+		timeElapsed = 0f;
+		isTimelineRunning = true;
+		IsTimelineSpawningFinished = false;
+		activeSpawnCoroutines = 0;
+		allWavesTriggered = false;
+
+		if (timelineCoroutine != null) StopCoroutine(timelineCoroutine);
+		timelineCoroutine = StartCoroutine(WaveTimelineRoutine());
 	}
 
-	private IEnumerator InitialSpawnRoutine()
+	private class RuntimeWaveAction
 	{
-		for (int i = 0; i < currentData.initialZombies; i++)
+		public WaveAction actionData;
+		public List<SpawnPointMarker> chosenSpawners = new List<SpawnPointMarker>();
+	}
+
+	private class TrackedWave
+	{
+		public WaveData data;
+		public bool warningTriggered = false;
+		public bool waveTriggered = false;
+		public List<RuntimeWaveAction> runtimeActions = new List<RuntimeWaveAction>();
+	}
+
+	private IEnumerator WaveTimelineRoutine()
+	{
+		List<TrackedWave> pendingWaves = new List<TrackedWave>();
+		foreach (var wave in currentData.waves)
 		{
-			yield return new WaitForSeconds(currentData.initialSpawnDelay);
+			if (wave != null)
+				pendingWaves.Add(new TrackedWave { data = wave });
+		}
 
-			if (daySpawnPoints.Count <= 0) continue;
+		while (isTimelineRunning && GameManager.Instance.State != GameManager.GameState.SuddenDeath)
+		{
+			timeElapsed += Time.deltaTime;
 
-			Transform spawnPoint = daySpawnPoints[Random.Range(0, daySpawnPoints.Count)];
+			foreach (var waveTracker in pendingWaves)
+			{
+				if (!waveTracker.warningTriggered && timeElapsed >= (waveTracker.data.startTime - waveTracker.data.warningDuration))
+				{
+					waveTracker.warningTriggered = true;
+					PrepareAndWarnWave(waveTracker);
+				}
 
-			if (ZombiePool.Instance != null)
+				if (!waveTracker.waveTriggered && timeElapsed >= waveTracker.data.startTime)
+				{
+					waveTracker.waveTriggered = true;
+
+					if (!waveTracker.warningTriggered)
+					{
+						waveTracker.warningTriggered = true;
+						PrepareAndWarnWave(waveTracker);
+					}
+
+					StartCoroutine(ExecuteWave(waveTracker));
+				}
+			}
+
+			pendingWaves.RemoveAll(w => w.waveTriggered);
+
+			if (pendingWaves.Count == 0)
+			{
+				allWavesTriggered = true;
+			}
+
+			IsTimelineSpawningFinished = allWavesTriggered && (activeSpawnCoroutines == 0);
+
+			yield return null;
+		}
+	}
+
+	private void PrepareAndWarnWave(TrackedWave waveTracker)
+	{
+		HashSet<SpawnPointMarker> warnedSpawners = new HashSet<SpawnPointMarker>();
+
+		foreach (var action in waveTracker.data.actions)
+		{
+			RuntimeWaveAction runtimeAction = new RuntimeWaveAction { actionData = action };
+
+			if (action.spawnGroup == SpawnGroup.Any)
+			{
+				// Если Any - выбираем ровно ОДНУ случайную дневную точку
+				var dayPoints = allSpawnPoints.Where(sp => !sp.isNightSpawn).ToList();
+				if (dayPoints.Count > 0)
+				{
+					runtimeAction.chosenSpawners.Add(dayPoints[Random.Range(0, dayPoints.Count)]);
+				}
+			}
+			else if (action.spawnGroup == SpawnGroup.All)
+			{
+				// Если All - берем ВСЕ дневные точки
+				runtimeAction.chosenSpawners.AddRange(allSpawnPoints.Where(sp => !sp.isNightSpawn));
+			}
+			else
+			{
+				// Иначе берем точки по конкретной группе (North, South и тд)
+				runtimeAction.chosenSpawners = allSpawnPoints.Where(sp => sp.group == action.spawnGroup).ToList();
+			}
+
+			waveTracker.runtimeActions.Add(runtimeAction);
+
+			if (indicatorPrefab != null)
+			{
+				foreach (var sp in runtimeAction.chosenSpawners)
+				{
+					if (!warnedSpawners.Contains(sp))
+					{
+						warnedSpawners.Add(sp);
+						Vector3 pos = sp.transform.position + Vector3.up * indicatorHeight;
+						GameObject indicator = Instantiate(indicatorPrefab, pos, indicatorPrefab.transform.rotation);
+
+						SpawnIndicator logic = indicator.GetComponent<SpawnIndicator>();
+						if (logic != null) logic.isPlanningIndicator = false;
+
+						Destroy(indicator, waveTracker.data.warningDuration);
+					}
+				}
+			}
+		}
+	}
+
+	private IEnumerator ExecuteWave(TrackedWave waveTracker)
+	{
+		foreach (var runtimeAction in waveTracker.runtimeActions)
+		{
+			StartCoroutine(ExecuteWaveAction(runtimeAction));
+		}
+		yield return null;
+	}
+
+	private IEnumerator ExecuteWaveAction(RuntimeWaveAction runtimeAction)
+	{
+		activeSpawnCoroutines++;
+
+		List<SpawnPointMarker> validPoints = runtimeAction.chosenSpawners;
+
+		if (validPoints.Count == 0)
+		{
+			Debug.LogWarning($"[LevelManager] Не найдено точек спавна для группы {runtimeAction.actionData.spawnGroup}. Спавн пропущен.");
+			activeSpawnCoroutines--;
+			yield break;
+		}
+
+		for (int i = 0; i < runtimeAction.actionData.count; i++)
+		{
+			// Рандомно выбираем точку из доступных для этой волны
+			Transform spawnPoint = validPoints[Random.Range(0, validPoints.Count)].transform;
+			GameObject prefabToUse = runtimeAction.actionData.zombiePrefab != null ? runtimeAction.actionData.zombiePrefab : zombiePrefab;
+
+			// ФИКС: Если указан СПЕЦИАЛЬНЫЙ префаб (например, Босс), мы игнорируем Пул и Инстаншируем его напрямую.
+			// Пул используется только для дефолтных зомби.
+			if (ZombiePool.Instance != null && prefabToUse == zombiePrefab)
 			{
 				ZombiePool.Instance.Get(spawnPoint.position, Quaternion.identity);
 			}
 			else
 			{
-				Instantiate(zombiePrefab, spawnPoint.position, Quaternion.identity);
+				Instantiate(prefabToUse, spawnPoint.position, Quaternion.identity);
 			}
-		}
-	}
 
-	private IEnumerator SpawnBossesRoutine()
-	{
-		yield return new WaitForSeconds(currentData.bossSpawnDelay);
-
-		int bossesToSpawn = Mathf.Max(0, currentData.bossCount);
-		for (int i = 0; i < bossesToSpawn; i++)
-		{
-			SpawnOneBoss(i + 1);
-
-			if (i < bossesToSpawn - 1)
-				yield return new WaitForSeconds(currentData.bossSpawnStepDelay);
-		}
-	}
-
-	private void SpawnOneBoss(int bossNumber)
-	{
-		if (daySpawnPoints.Count <= 0) return;
-		if (currentData.bossPrefab == null) return;
-
-		Transform spawnPoint = daySpawnPoints[Random.Range(0, daySpawnPoints.Count)];
-		GameObject bossObj = Instantiate(currentData.bossPrefab, spawnPoint.position, Quaternion.identity);
-		bossObj.name = currentData.bossPrefab.name + "_" + bossNumber;
-
-		ZombieBoss boss = bossObj.GetComponent<ZombieBoss>();
-		if (boss != null)
-		{
-			boss.rageInterval = currentData.bossRageInterval;
-			boss.rageDuration = currentData.bossRageDuration;
-			boss.rageBreakRadius = currentData.bossBreakRadius;
-			boss.maxBuildingsPerRage = currentData.bossMaxBuildingsPerRage;
+			if (runtimeAction.actionData.spawnInterval > 0)
+				yield return new WaitForSeconds(runtimeAction.actionData.spawnInterval);
 		}
 
-		Debug.Log("[LevelManager] Spawned boss: " + bossObj.name);
+		activeSpawnCoroutines--;
 	}
 
 	public void StartSuddenDeath()
 	{
+		isTimelineRunning = false;
+		if (timelineCoroutine != null) StopCoroutine(timelineCoroutine);
+
+		if (indicatorPrefab != null)
+		{
+			foreach (var sp in nightSpawnPoints)
+			{
+				Vector3 pos = sp.transform.position + Vector3.up * indicatorHeight;
+				GameObject indicator = Instantiate(indicatorPrefab, pos, indicatorPrefab.transform.rotation);
+
+				SpawnIndicator logic = indicator.GetComponent<SpawnIndicator>();
+				if (logic != null) logic.isPlanningIndicator = false;
+
+				Destroy(indicator, 3f);
+			}
+		}
+
 		StartCoroutine(SuddenDeathRoutine());
 		StartCoroutine(NightTransitionRoutine());
 	}
@@ -242,8 +386,9 @@ public class LevelManager : MonoBehaviour
 
 			if (nightSpawnPoints.Count <= 0) continue;
 
-			Transform spawnPoint = nightSpawnPoints[Random.Range(0, nightSpawnPoints.Count)];
+			Transform spawnPoint = nightSpawnPoints[Random.Range(0, nightSpawnPoints.Count)].transform;
 
+			// В судный день спавним только дефолтных зомби, поэтому пул здесь работает нормально
 			if (ZombiePool.Instance != null)
 			{
 				ZombiePool.Instance.Get(spawnPoint.position, Quaternion.identity);
