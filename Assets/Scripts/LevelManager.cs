@@ -12,7 +12,7 @@ public class LevelManager : MonoBehaviour
 	[Header("Ссылки на мир")]
 	[SerializeField] private NavMeshSurface navSurface;
 	[SerializeField] private GameObject humanPrefab;
-	[SerializeField] private GameObject zombiePrefab; // Дефолтный зомби
+	[SerializeField] private GameObject zombiePrefab;
 	[SerializeField] private GameObject defaultScientistPrefab;
 
 	[Header("Визуализация Планирования / Предупреждения")]
@@ -29,7 +29,6 @@ public class LevelManager : MonoBehaviour
 
 	private int currentLevelIndex = 0;
 
-	// Система хранения точек спавна
 	private List<SpawnPointMarker> allSpawnPoints = new List<SpawnPointMarker>();
 	private List<SpawnPointMarker> nightSpawnPoints = new List<SpawnPointMarker>();
 	private List<GameObject> activeIndicators = new List<GameObject>();
@@ -37,7 +36,6 @@ public class LevelManager : MonoBehaviour
 	public LevelData currentData;
 	private GameObject currentLevelEnvironment;
 
-	// Таймлайн и статусы волн
 	private float timeElapsed = 0f;
 	private bool isTimelineRunning = false;
 	private Coroutine timelineCoroutine;
@@ -251,7 +249,6 @@ public class LevelManager : MonoBehaviour
 
 			if (action.spawnGroup == SpawnGroup.Any)
 			{
-				// Если Any - выбираем ровно ОДНУ случайную дневную точку
 				var dayPoints = allSpawnPoints.Where(sp => !sp.isNightSpawn).ToList();
 				if (dayPoints.Count > 0)
 				{
@@ -260,12 +257,10 @@ public class LevelManager : MonoBehaviour
 			}
 			else if (action.spawnGroup == SpawnGroup.All)
 			{
-				// Если All - берем ВСЕ дневные точки
 				runtimeAction.chosenSpawners.AddRange(allSpawnPoints.Where(sp => !sp.isNightSpawn));
 			}
 			else
 			{
-				// Иначе берем точки по конкретной группе (North, South и тд)
 				runtimeAction.chosenSpawners = allSpawnPoints.Where(sp => sp.group == action.spawnGroup).ToList();
 			}
 
@@ -304,6 +299,12 @@ public class LevelManager : MonoBehaviour
 	{
 		activeSpawnCoroutines++;
 
+		// НОВАЯ ФИЧА: Задержка перед стартом пачки
+		if (runtimeAction.actionData.delayBeforeStart > 0f)
+		{
+			yield return new WaitForSeconds(runtimeAction.actionData.delayBeforeStart);
+		}
+
 		List<SpawnPointMarker> validPoints = runtimeAction.chosenSpawners;
 
 		if (validPoints.Count == 0)
@@ -313,14 +314,14 @@ public class LevelManager : MonoBehaviour
 			yield break;
 		}
 
-		for (int i = 0; i < runtimeAction.actionData.count; i++)
+		// НОВАЯ ФИЧА: Высчитываем случайное количество зомби
+		int finalSpawnCount = runtimeAction.actionData.GetRandomCount();
+
+		for (int i = 0; i < finalSpawnCount; i++)
 		{
-			// Рандомно выбираем точку из доступных для этой волны
 			Transform spawnPoint = validPoints[Random.Range(0, validPoints.Count)].transform;
 			GameObject prefabToUse = runtimeAction.actionData.zombiePrefab != null ? runtimeAction.actionData.zombiePrefab : zombiePrefab;
 
-			// ФИКС: Если указан СПЕЦИАЛЬНЫЙ префаб (например, Босс), мы игнорируем Пул и Инстаншируем его напрямую.
-			// Пул используется только для дефолтных зомби.
 			if (ZombiePool.Instance != null && prefabToUse == zombiePrefab)
 			{
 				ZombiePool.Instance.Get(spawnPoint.position, Quaternion.identity);
@@ -330,8 +331,25 @@ public class LevelManager : MonoBehaviour
 				Instantiate(prefabToUse, spawnPoint.position, Quaternion.identity);
 			}
 
-			if (runtimeAction.actionData.spawnInterval > 0)
-				yield return new WaitForSeconds(runtimeAction.actionData.spawnInterval);
+			// НОВАЯ ФИЧА: Отработка паттернов спавна (если это не последний зомби в пачке)
+			if (i < finalSpawnCount - 1)
+			{
+				switch (runtimeAction.actionData.pattern)
+				{
+					case SpawnPattern.Linear:
+						yield return new WaitForSeconds(runtimeAction.actionData.spawnInterval);
+						break;
+
+					case SpawnPattern.Burst:
+						yield return new WaitForSeconds(0.05f); // Микропауза, чтобы не повесить кадр
+						break;
+
+					case SpawnPattern.RandomInterval:
+						// Рандомный интервал от 0.1 сек до максимума
+						yield return new WaitForSeconds(Random.Range(0.1f, runtimeAction.actionData.spawnInterval));
+						break;
+				}
+			}
 		}
 
 		activeSpawnCoroutines--;
@@ -388,7 +406,6 @@ public class LevelManager : MonoBehaviour
 
 			Transform spawnPoint = nightSpawnPoints[Random.Range(0, nightSpawnPoints.Count)].transform;
 
-			// В судный день спавним только дефолтных зомби, поэтому пул здесь работает нормально
 			if (ZombiePool.Instance != null)
 			{
 				ZombiePool.Instance.Get(spawnPoint.position, Quaternion.identity);

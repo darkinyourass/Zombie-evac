@@ -26,6 +26,9 @@ public class HelicopterController : MonoBehaviour
 	public float boardingAnimDuration = 0.28f;
 	public float boardingLiftHeight = 1.2f;
 
+	[Tooltip("Дистанция, при которой вертолет пугается зомби и экстренно взлетает")]
+	public float panicRadius = 3f;
+
 	public GameObject sirenRingPrefab;
 	public GameObject humanAlertPrefab;
 	public float alertDuration = 2.0f;
@@ -184,16 +187,26 @@ public class HelicopterController : MonoBehaviour
 		float nextBoardTime = 0;
 		float waitTimer = 0;
 
+		// Переменные для оптимизации проверки зомби
+		float panicCheckInterval = 0.2f;
+		float nextPanicCheckTime = 0;
+		float panicRadiusSqr = panicRadius * panicRadius;
+
 		while (currentLoad < maxCapacity && !isTooHot && waitTimer < loadTime)
 		{
 			waitTimer += Time.deltaTime;
 
-			foreach (var z in Zombie.AllZombies)
+			// Оптимизированный блок проверки паники
+			if (Time.time >= nextPanicCheckTime)
 			{
-				if (z != null && Vector3.Distance(transform.position, z.transform.position) < 3f)
+				nextPanicCheckTime = Time.time + panicCheckInterval;
+				foreach (var z in Zombie.AllZombies)
 				{
-					isTooHot = true;
-					break;
+					if (z != null && (z.transform.position - transform.position).sqrMagnitude < panicRadiusSqr)
+					{
+						isTooHot = true;
+						break;
+					}
 				}
 			}
 

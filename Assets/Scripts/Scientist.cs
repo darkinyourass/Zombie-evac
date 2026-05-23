@@ -247,6 +247,9 @@ public class Scientist : MonoBehaviour
 
 	public IEnumerator PlayBoardingAnimation(Vector3 boardCenter, float duration, float liftHeight = 0.6f)
 	{
+		// ФИКС: Защита старта корутины
+		if (this == null || gameObject == null) yield break;
+
 		isBoarding = true;
 		isRescuing = false;
 		hasRescueApproachPoint = false;
@@ -266,6 +269,12 @@ public class Scientist : MonoBehaviour
 		float t = 0f;
 		while (t < 1f)
 		{
+			// ФИКС: Прерываем цикл, если объект был уничтожен извне
+			if (this == null || gameObject == null || transform == null)
+			{
+				yield break;
+			}
+
 			t += Time.deltaTime / Mathf.Max(0.01f, duration);
 			float eased = Mathf.SmoothStep(0f, 1f, t);
 
@@ -275,8 +284,12 @@ public class Scientist : MonoBehaviour
 			yield return null;
 		}
 
-		transform.position = endPos;
-		transform.localScale = endScale;
+		// ФИКС: Защита финала
+		if (this != null && gameObject != null && transform != null)
+		{
+			transform.position = endPos;
+			transform.localScale = endScale;
+		}
 	}
 
 	private void SetRandomDest()

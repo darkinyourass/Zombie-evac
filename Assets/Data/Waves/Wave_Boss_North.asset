@@ -15,7 +15,17 @@ MonoBehaviour:
   startTime: 3
   warningDuration: 3
   actions:
-  - zombiePrefab: {fileID: 5563988904170882665, guid: 35f1b3dcc90a70748b76c896e76d296e, type: 3}
-    count: 10
+  - delayBeforeStart: 0
+    zombiePrefab: {fileID: 5563988904170882665, guid: 35f1b3dcc90a70748b76c896e76d296e, type: 3}
+    minCount: 5
+    maxCount: 5
+    pattern: 1
     spawnInterval: 0.5
     spawnGroup: 2
+  - delayBeforeStart: 10
+    zombiePrefab: {fileID: 5563988904170882665, guid: 35f1b3dcc90a70748b76c896e76d296e, type: 3}
+    minCount: 1
+    maxCount: 10
+    pattern: 2
+    spawnInterval: 0.5
+    spawnGroup: 1

@@ -12,6 +12,13 @@ public class LevelData : ScriptableObject
 	public float levelTimer = 60f;
 	public float suddenDeathSpawnRate = 0.3f;
 
+	[Header("Модификаторы уровня (Мутаторы)")]
+	[Tooltip("Множитель скорости всех зомби на этом уровне (1 = стандартная)")]
+	public float zombieSpeedMultiplier = 1.0f;
+
+	[Tooltip("Множитель здоровья всех зомби на этом уровне (1 = стандартное)")]
+	public float zombieHealthMultiplier = 1.0f;
+
 	[Header("Таймлайн Волн")]
 	[Tooltip("Перетащи сюда модули волн в том порядке, в котором они должны сработать")]
 	public List<WaveData> waves = new List<WaveData>();
@@ -46,8 +53,6 @@ public class LevelData : ScriptableObject
 
 	[Header("Награда за первое прохождение")]
 	public int currencyReward = 50;
-
-	// Переменная возвращена для работы GameManager и LevelMissionPopupUI
 	public LootboxData levelRewardLootbox;
 
 	[Header("Учёные на уровне")]

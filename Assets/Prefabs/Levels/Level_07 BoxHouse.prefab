@@ -763,6 +763,7 @@ GameObject:
   - component: {fileID: 3832749146090307893}
   - component: {fileID: 2523696455003528863}
   - component: {fileID: 3543593213452098809}
+  - component: {fileID: 4712099187436157958}
   m_Layer: 0
   m_Name: NightSpawn (2)
   m_TagString: NightSpawn
@@ -876,6 +877,20 @@ MonoBehaviour:
   gizmoIconName: SkullIcon.png
   gizmoTintColor: {r: 0, g: 0, b: 0, a: 0.5}
   gizmoSize: 1
+--- !u!114 &4712099187436157958
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 254086794792086895}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e455f1af3457bc4a97b32af4883987a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  group: 0
+  isNightSpawn: 1
 --- !u!1 &278931538558450574
 GameObject:
   m_ObjectHideFlags: 0
@@ -1747,6 +1762,7 @@ GameObject:
   - component: {fileID: 4325041046960932256}
   - component: {fileID: 4300265729628410072}
   - component: {fileID: 2833464601031169605}
+  - component: {fileID: 392272039009987922}
   m_Layer: 0
   m_Name: NightSpawn (1)
   m_TagString: NightSpawn
@@ -1860,6 +1876,20 @@ MonoBehaviour:
   gizmoIconName: SkullIcon.png
   gizmoTintColor: {r: 0, g: 0, b: 0, a: 0.5}
   gizmoSize: 1
+--- !u!114 &392272039009987922
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443671630091927435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e455f1af3457bc4a97b32af4883987a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  group: 0
+  isNightSpawn: 1
 --- !u!1 &445801646584509742
 GameObject:
   m_ObjectHideFlags: 0
@@ -2873,6 +2903,7 @@ GameObject:
   - component: {fileID: 8931287525813047146}
   - component: {fileID: 1546510856556478798}
   - component: {fileID: 5745243051816267551}
+  - component: {fileID: 1271115202602799294}
   m_Layer: 0
   m_Name: ZombieSpawnPoint (1)
   m_TagString: SpawnPoint
@@ -2986,6 +3017,20 @@ MonoBehaviour:
   gizmoIconName: SkullIcon.png
   gizmoTintColor: {r: 0.8679245, g: 0.11053756, b: 0.11053756, a: 0.5}
   gizmoSize: 1
+--- !u!114 &1271115202602799294
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 822512622467898487}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e455f1af3457bc4a97b32af4883987a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  group: 0
+  isNightSpawn: 0
 --- !u!1 &869476111318231715
 GameObject:
   m_ObjectHideFlags: 0
@@ -4834,6 +4879,7 @@ GameObject:
   - component: {fileID: 473096873963218656}
   - component: {fileID: 9114052270495606196}
   - component: {fileID: 8003757752398852001}
+  - component: {fileID: 5727242911199563940}
   m_Layer: 0
   m_Name: NightSpawn
   m_TagString: NightSpawn
@@ -4947,6 +4993,20 @@ MonoBehaviour:
   gizmoIconName: SkullIcon.png
   gizmoTintColor: {r: 0, g: 0, b: 0, a: 0.5}
   gizmoSize: 1
+--- !u!114 &5727242911199563940
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1468185812036593412}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e455f1af3457bc4a97b32af4883987a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  group: 0
+  isNightSpawn: 1
 --- !u!1 &1560970531718752264
 GameObject:
   m_ObjectHideFlags: 0
@@ -9578,6 +9638,7 @@ GameObject:
   - component: {fileID: 2125971957026438248}
   - component: {fileID: 6938296829974700862}
   - component: {fileID: 5910722990974439146}
+  - component: {fileID: 5618951891390548649}
   m_Layer: 0
   m_Name: NightSpawn (4)
   m_TagString: NightSpawn
@@ -9691,6 +9752,20 @@ MonoBehaviour:
   gizmoIconName: SkullIcon.png
   gizmoTintColor: {r: 0, g: 0, b: 0, a: 0.5}
   gizmoSize: 1
+--- !u!114 &5618951891390548649
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3459119063903499215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e455f1af3457bc4a97b32af4883987a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  group: 0
+  isNightSpawn: 1
 --- !u!1 &3472388630357706102
 GameObject:
   m_ObjectHideFlags: 0
@@ -12493,6 +12568,7 @@ GameObject:
   - component: {fileID: 1817729751535459802}
   - component: {fileID: 4256998420608305076}
   - component: {fileID: 1896988405203122874}
+  - component: {fileID: 7799702188692714397}
   m_Layer: 0
   m_Name: NightSpawn (5)
   m_TagString: NightSpawn
@@ -12606,6 +12682,20 @@ MonoBehaviour:
   gizmoIconName: SkullIcon.png
   gizmoTintColor: {r: 0, g: 0, b: 0, a: 0.5}
   gizmoSize: 1
+--- !u!114 &7799702188692714397
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4267841697032250306}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e455f1af3457bc4a97b32af4883987a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  group: 0
+  isNightSpawn: 1
 --- !u!1 &4279469735454886274
 GameObject:
   m_ObjectHideFlags: 0
@@ -19709,6 +19799,7 @@ GameObject:
   - component: {fileID: 2257203528278457094}
   - component: {fileID: 2993369515383219835}
   - component: {fileID: 8297526500994857610}
+  - component: {fileID: 4818037280195641637}
   m_Layer: 0
   m_Name: ZombieSpawnPoint
   m_TagString: SpawnPoint
@@ -19822,6 +19913,20 @@ MonoBehaviour:
   gizmoIconName: SkullIcon.png
   gizmoTintColor: {r: 0.8679245, g: 0.11053756, b: 0.11053756, a: 0.5}
   gizmoSize: 1
+--- !u!114 &4818037280195641637
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7108027991216889427}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e455f1af3457bc4a97b32af4883987a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  group: 0
+  isNightSpawn: 0
 --- !u!1 &7111126449600956040
 GameObject:
   m_ObjectHideFlags: 0
@@ -20210,6 +20315,7 @@ GameObject:
   - component: {fileID: 6793242579997731420}
   - component: {fileID: 8276930294797025671}
   - component: {fileID: 7615996291436360550}
+  - component: {fileID: 7859094965078595093}
   m_Layer: 0
   m_Name: ZombieSpawnPoint
   m_TagString: SpawnPoint
@@ -20323,6 +20429,20 @@ MonoBehaviour:
   gizmoIconName: SkullIcon.png
   gizmoTintColor: {r: 0.8679245, g: 0.11053756, b: 0.11053756, a: 0.5}
   gizmoSize: 1
+--- !u!114 &7859094965078595093
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7267771812262770123}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e455f1af3457bc4a97b32af4883987a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  group: 0
+  isNightSpawn: 0
 --- !u!1 &7276052702686236907
 GameObject:
   m_ObjectHideFlags: 0

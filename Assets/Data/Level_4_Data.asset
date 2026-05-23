@@ -15,9 +15,12 @@ MonoBehaviour:
   levelPrefab: {fileID: 4058927015439930953, guid: 8d6a82675df5cf34593ad5e7eb120e96, type: 3}
   humanCount: 50
   levelTimer: 30
-  initialZombies: 200
-  initialSpawnDelay: 0.3
   suddenDeathSpawnRate: 0.2
+  zombieSpeedMultiplier: 1
+  zombieHealthMultiplier: 1
+  waves:
+  - {fileID: 11400000, guid: 49665c75a36b0454fa61c46978ee3ab6, type: 2}
+  - {fileID: 11400000, guid: d9a443c098b198e4dbcb832ed2de2079, type: 2}
   requiredRescuedHumans: 10
   star1RequiredHumans: 10
   star2RequiredHumans: 20
@@ -34,12 +37,3 @@ MonoBehaviour:
   levelRewardLootbox: {fileID: 11400000, guid: aedfda23cd5572c4dac0817ed913988e, type: 2}
   scientistCount: 0
   scientistPrefab: {fileID: 4991825780762222915, guid: f3998a4653bed4146998b1e0a79d50c9, type: 3}
-  spawnBoss: 0
-  bossPrefab: {fileID: 5563988904170882665, guid: c30f7da6141f3644986e4e8c45544712, type: 3}
-  bossCount: 4
-  bossSpawnDelay: 8
-  bossSpawnStepDelay: 1
-  bossRageInterval: 8
-  bossRageDuration: 2.5
-  bossBreakRadius: 4
-  bossMaxBuildingsPerRage: 1
