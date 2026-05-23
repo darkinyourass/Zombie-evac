@@ -15,16 +15,28 @@ public class MenuManager : MonoBehaviour
 	[SerializeField] private TextMeshProUGUI energyTimerText;
 	[SerializeField] private Slider energyProgressBar;
 
-	// --- НОВОЕ: Ссылка на попап магазина для вызова по клику ---
+	[Header("Магазин")]
 	[SerializeField] private EnergyStorePopupUI energyStorePopup;
+
+	[Header("Туториал")]
+	[Tooltip("Сюда перетащи ассет TutorialSequence для Главного Меню")]
+	[SerializeField] private TutorialSequence mainMenuTutorial;
 
 	private void Start()
 	{
+		// 1. Подписываемся на обновления профиля
 		if (PlayerProfile.Instance != null)
 		{
 			PlayerProfile.Instance.OnProfileUpdated += RefreshUI;
 			PlayerProfile.Instance.OnEnergyUpdated += RefreshUI;
 			RefreshUI();
+		}
+
+		// 2. БЕЗОПАСНЫЙ ЗАПУСК ТУТОРИАЛА
+		// Вызываем в Start, потому что PlayerProfile точно загрузился в Awake.
+		if (mainMenuTutorial != null && TutorialManager.Instance != null)
+		{
+			TutorialManager.Instance.StartTutorial(mainMenuTutorial);
 		}
 	}
 
@@ -82,7 +94,6 @@ public class MenuManager : MonoBehaviour
 		SceneManager.LoadScene("Gameplay");
 	}
 
-	// --- НОВОЕ: Метод для вызова попапа из UI кнопки ---
 	public void OnEnergyUI_Clicked()
 	{
 		if (energyStorePopup != null)
