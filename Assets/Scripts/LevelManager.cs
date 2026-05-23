@@ -102,6 +102,12 @@ public class LevelManager : MonoBehaviour
 
 		GameManager.Instance.SetTotalHumans(GameObject.FindGameObjectsWithTag("Human").Length);
 		GameManager.Instance.SetupTimer(data.levelTimer);
+
+		// --- ЗАПУСК ТУТОРИАЛА СРАЗУ ПРИ СТАРТЕ УРОВНЯ ---
+		if (currentData != null && currentData.onStartTutorial != null && TutorialManager.Instance != null)
+		{
+			TutorialManager.Instance.StartTutorial(currentData.onStartTutorial);
+		}
 	}
 
 	private void SpawnInitialPlanningIndicators()
@@ -299,7 +305,6 @@ public class LevelManager : MonoBehaviour
 	{
 		activeSpawnCoroutines++;
 
-		// НОВАЯ ФИЧА: Задержка перед стартом пачки
 		if (runtimeAction.actionData.delayBeforeStart > 0f)
 		{
 			yield return new WaitForSeconds(runtimeAction.actionData.delayBeforeStart);
@@ -314,7 +319,6 @@ public class LevelManager : MonoBehaviour
 			yield break;
 		}
 
-		// НОВАЯ ФИЧА: Высчитываем случайное количество зомби
 		int finalSpawnCount = runtimeAction.actionData.GetRandomCount();
 
 		for (int i = 0; i < finalSpawnCount; i++)
@@ -331,7 +335,6 @@ public class LevelManager : MonoBehaviour
 				Instantiate(prefabToUse, spawnPoint.position, Quaternion.identity);
 			}
 
-			// НОВАЯ ФИЧА: Отработка паттернов спавна (если это не последний зомби в пачке)
 			if (i < finalSpawnCount - 1)
 			{
 				switch (runtimeAction.actionData.pattern)
@@ -341,11 +344,10 @@ public class LevelManager : MonoBehaviour
 						break;
 
 					case SpawnPattern.Burst:
-						yield return new WaitForSeconds(0.05f); // Микропауза, чтобы не повесить кадр
+						yield return new WaitForSeconds(0.05f);
 						break;
 
 					case SpawnPattern.RandomInterval:
-						// Рандомный интервал от 0.1 сек до максимума
 						yield return new WaitForSeconds(Random.Range(0.1f, runtimeAction.actionData.spawnInterval));
 						break;
 				}

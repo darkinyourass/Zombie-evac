@@ -62,6 +62,10 @@ public class LevelData : ScriptableObject
 	[Tooltip("ѕрефаб учЄного (Scientist) дл€ этого уровн€ (если не задан Ч возьмЄм из LevelManager)")]
 	public GameObject scientistPrefab;
 
+	[Header("“уториал уровн€")]
+	[Tooltip("Ётот туториал запуститс€ ј¬“ќћј“»„≈— », когда игрок начнет этот уровень")]
+	public TutorialSequence onStartTutorial;
+
 	public int GetStar1Target()
 	{
 		return star1RequiredHumans > 0 ? star1RequiredHumans : requiredRescuedHumans;

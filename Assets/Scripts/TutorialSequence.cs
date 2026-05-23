@@ -3,9 +3,11 @@ using System.Collections.Generic;
 
 public enum TutorialStepType
 {
-	DialogOnly,       // Только текст (клик в любое место для продолжения)
-	ClickOnly,        // Только палец и подсветка кнопки (без диалога)
-	DialogAndClick    // И диалог, и требование кликнуть по конкретной кнопке
+	DialogOnly,
+	ClickOnly,
+	DialogAndClick,
+	DragAndDrop,      // НОВОЕ: Только перетягивание карточки
+	DialogAndDrag     // НОВОЕ: Диалог + перетягивание
 }
 
 public enum DialogPosition
@@ -21,11 +23,18 @@ public class TutorialStep
 	[Header("Тип шага")]
 	public TutorialStepType stepType;
 
-	[Tooltip("ID цели (TutorialTarget), на которую нужно кликнуть. Оставь пустым для DialogOnly.")]
+	[Tooltip("ID цели (TutorialTarget), откуда начинаем (например, Карточка)")]
 	public string targetId;
 
-	[Tooltip("Затемнять ли остальной экран вокруг цели?")]
+	[Tooltip("Затемнять ли остальной экран вокруг стартовой цели?")]
 	public bool useDarkMask = true;
+
+	[Header("Настройки Drag & Drop")]
+	[Tooltip("ID UI-зоны, куда нужно дотянуть карту (опционально, для анимации пальца)")]
+	public string dropTargetId;
+
+	[Tooltip("Если dropTargetId пустой, палец просто проанимирует свайп по этому вектору")]
+	public Vector2 swipeOffset = new Vector2(0, 400);
 
 	[Header("Настройки Диалога")]
 	[TextArea(2, 4)]
@@ -37,8 +46,6 @@ public class TutorialStep
 [CreateAssetMenu(fileName = "NewTutorial", menuName = "ZombieGame/TutorialSequence")]
 public class TutorialSequence : ScriptableObject
 {
-	[Tooltip("Уникальный ID туториала для сохранения прогресса (чтобы не показывать дважды)")]
 	public string tutorialId = "Tutorial_1";
-
 	public List<TutorialStep> steps = new List<TutorialStep>();
 }

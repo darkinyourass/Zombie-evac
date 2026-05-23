@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 332aa137affed994d871823fcc60d0d1, type: 3}
-  m_Name: TutorialSequence01
+  m_Name: TutorialSequenceMenu01
   m_EditorClassIdentifier: 
-  tutorialId: Tutorial_01
+  tutorialId: TutorialMenu_01
   steps:
   - stepType: 1
     targetId: Level1

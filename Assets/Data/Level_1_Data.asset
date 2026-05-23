@@ -16,6 +16,8 @@ MonoBehaviour:
   humanCount: 50
   levelTimer: 30
   suddenDeathSpawnRate: 0.5
+  zombieSpeedMultiplier: 1
+  zombieHealthMultiplier: 1
   waves:
   - {fileID: 11400000, guid: d9a443c098b198e4dbcb832ed2de2079, type: 2}
   - {fileID: 11400000, guid: 49665c75a36b0454fa61c46978ee3ab6, type: 2}
@@ -35,3 +37,4 @@ MonoBehaviour:
   levelRewardLootbox: {fileID: 11400000, guid: aedfda23cd5572c4dac0817ed913988e, type: 2}
   scientistCount: 0
   scientistPrefab: {fileID: 4991825780762222915, guid: f3998a4653bed4146998b1e0a79d50c9, type: 3}
+  onStartTutorial: {fileID: 11400000, guid: 71c39a47e3b0c4b4a9a093263776bc09, type: 2}

@@ -55,7 +55,6 @@ public class InputManager : MonoBehaviour
 		draggingCard = card;
 		isDragging = true;
 
-		// --- ÍÎÂÎÅ: Âêëş÷àåì çàìåäëåíèå âğåìåíè ---
 		if (TimeManager.Instance != null)
 		{
 			TimeManager.Instance.StartSlowMo();
@@ -110,7 +109,6 @@ public class InputManager : MonoBehaviour
 		isDragging = false;
 		radiusCircle.enabled = false;
 
-		// --- ÍÎÂÎÅ: Âîçâğàùàåì âğåìÿ â íîğìó ---
 		if (TimeManager.Instance != null)
 		{
 			TimeManager.Instance.StopSlowMo();
@@ -136,6 +134,13 @@ public class InputManager : MonoBehaviour
 			if (placed && GameManager.Instance.State == GameManager.GameState.Planning)
 				GameManager.Instance.StartGame();
 
+			// --- ÍÎÂÎÅ: ÒĞÈÃÃÅĞ ÒÓÒÎĞÈÀËÀ ÄËß ÑÍÀÉÏÅĞÀ ---
+			if (placed && TutorialManager.Instance != null)
+			{
+				TutorialManager.Instance.NextStep();
+			}
+			// ---------------------------------------------
+
 			return placed;
 		}
 
@@ -159,6 +164,13 @@ public class InputManager : MonoBehaviour
 
 			if (GameManager.Instance.State == GameManager.GameState.Planning)
 				GameManager.Instance.StartGame();
+
+			// --- ÍÎÂÎÅ: ÒĞÈÃÃÅĞ ÒÓÒÎĞÈÀËÀ ÄËß ÎÑÒÀËÜÍÛÕ ÊÀĞÒ (ÂÅĞÒÎËÅÒ, ÁÎÌÁÀ È Ò.Ä.) ---
+			if (TutorialManager.Instance != null)
+			{
+				TutorialManager.Instance.NextStep();
+			}
+			// --------------------------------------------------------------------------
 
 			return true;
 		}
