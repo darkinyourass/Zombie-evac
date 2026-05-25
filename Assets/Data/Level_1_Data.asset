@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76a19b13f68c89648a0a4c1fba3f8a6f, type: 3}
   m_Name: Level_1_Data
   m_EditorClassIdentifier: 
-  levelPrefab: {fileID: 4058927015439930953, guid: 27bd523dbc07f094ca2bb2fffde543fb, type: 3}
+  levelPrefab: {fileID: 4058927015439930953, guid: 4ad57e1b85076c3429077d257609abb3, type: 3}
   humanCount: 50
   levelTimer: 30
   suddenDeathSpawnRate: 0.5
